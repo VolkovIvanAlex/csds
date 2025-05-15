@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Bell, Menu, Plus, Search } from "lucide-react"
-import { useAtom } from "jotai"
+import { useAtom, useSetAtom } from "jotai"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -16,16 +16,21 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { sidebarOpenAtom, authStateAtom } from "@/lib/jotai/atoms"
-import { logout } from "@/lib/jotai/auth-actions"
+import { sidebarOpenAtom } from "@/lib/jotai/atoms/atoms"
+import { authStateAtom } from "@/lib/jotai/atoms/authState"
+import { logoutAtom } from "@/lib/jotai/auth-actions"
+import { useLogout } from "@privy-io/react-auth"
 
 export function Header() {
   const router = useRouter()
   const [, setSidebarOpen] = useAtom(sidebarOpenAtom)
   const [authState, setAuthState] = useAtom(authStateAtom)
+  const { logout: privyLogout } = useLogout();
+  const logout = useSetAtom(logoutAtom);
 
-  const handleLogout = () => {
-    logout(setAuthState)
+  const handleLogout = async () => {
+    logout()
+    await privyLogout();
     router.push("/login")
   }
 

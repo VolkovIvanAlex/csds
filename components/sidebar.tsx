@@ -19,12 +19,15 @@ import {
   PlusCircle,
   FilePlus,
 } from "lucide-react"
-import { useAtom } from "jotai"
+import { useAtom, useSetAtom } from "jotai"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { sidebarOpenAtom, authStateAtom } from "@/lib/jotai/atoms"
+import { sidebarOpenAtom } from "@/lib/jotai/atoms/atoms"
+import { authStateAtom } from "@/lib/jotai/atoms/authState"
+import { fetchUserAtom } from "@/lib/jotai/auth-actions"
+import { useAuth } from "@/hooks/auth.hooks"
 
 interface SidebarItemProps {
   href: string
@@ -36,7 +39,7 @@ interface SidebarItemProps {
 function SidebarItem({ href, icon: Icon, title, requiresAuth = true }: SidebarItemProps) {
   const pathname = usePathname()
   const isActive = pathname === href
-  const [authState] = useAtom(authStateAtom)
+  const { authState } = useAuth();
 
   // Don't render auth-required items if not authenticated
   if (requiresAuth && !authState.isAuthenticated) {
@@ -59,8 +62,7 @@ function SidebarItem({ href, icon: Icon, title, requiresAuth = true }: SidebarIt
 
 export function Sidebar() {
   const [sidebarOpen, setSidebarOpen] = useAtom(sidebarOpenAtom)
-  const [authState] = useAtom(authStateAtom)
-
+  const { authState } = useAuth();
   return (
     <>
       {/* Mobile overlay */}
@@ -101,7 +103,7 @@ export function Sidebar() {
                 <div className="mt-6 px-3 py-2">
                   <h3 className="mb-2 text-xs font-semibold text-muted-foreground">REPORTS</h3>
                   <div className="space-y-1">
-                    <SidebarItem href="/dashboard/reports" icon={FileText} title="All Reports" />
+                    <SidebarItem href="/dashboard/reports" icon={FileText} title="My Organizations Reports" />
                     <SidebarItem href="/dashboard/reports/new" icon={FilePlus} title="Create Report" />
                     <SidebarItem href="/dashboard/shared" icon={Share2} title="Shared Reports" />
                   </div>
@@ -111,7 +113,7 @@ export function Sidebar() {
                 <div className="mt-4 px-3 py-2">
                   <h3 className="mb-2 text-xs font-semibold text-muted-foreground">ORGANIZATIONS</h3>
                   <div className="space-y-1">
-                    <SidebarItem href="/dashboard/organizations" icon={Building} title="All Organizations" />
+                    <SidebarItem href="/dashboard/organizations" icon={Building} title="My Organizations" />
                     <SidebarItem href="/dashboard/organizations/new" icon={PlusCircle} title="Create Organization" />
                   </div>
                 </div>

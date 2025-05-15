@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -24,160 +24,16 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Search, Plus, MoreHorizontal, FileText, Building2, Share2, Bell, Filter, UserPlus, Check } from "lucide-react"
+import { Search, Plus, MoreHorizontal, FileText, Building2, Share2, Bell, Filter, UserPlus, Check, X } from "lucide-react"
 import Link from "next/link"
 import { useAtom } from "jotai"
-import { authStateAtom } from "@/lib/jotai/atoms"
-
-// Mock data for organizations
-const mockOrganizations = [
-  {
-    id: "1",
-    name: "Acme Corp",
-    founder: {
-      id: "1",
-      name: "Alex Johnson",
-      photo: "/abstract-geometric-shapes.png",
-    },
-    userCount: 12,
-    reportCount: 48,
-    sharedReportsSent: 15,
-    sharedReportsReceived: 8,
-    notificationCount: 3,
-  },
-  {
-    id: "2",
-    name: "TechGlobal",
-    founder: {
-      id: "2",
-      name: "Sarah Miller",
-      photo: "/number-two-graphic.png",
-    },
-    userCount: 8,
-    reportCount: 36,
-    sharedReportsSent: 10,
-    sharedReportsReceived: 12,
-    notificationCount: 5,
-  },
-  {
-    id: "3",
-    name: "DataDefense",
-    founder: {
-      id: "3",
-      name: "James Wilson",
-      photo: "/abstract-geometric-shapes.png",
-    },
-    userCount: 15,
-    reportCount: 62,
-    sharedReportsSent: 20,
-    sharedReportsReceived: 15,
-    notificationCount: 2,
-  },
-  {
-    id: "4",
-    name: "SecureNet",
-    founder: {
-      id: "4",
-      name: "Emily Davis",
-      photo: "/abstract-geometric-shapes.png",
-    },
-    userCount: 6,
-    reportCount: 24,
-    sharedReportsSent: 8,
-    sharedReportsReceived: 5,
-    notificationCount: 1,
-  },
-]
-
-// Mock data for organization members
-const mockMembers = [
-  { id: "1", name: "Alex Johnson", email: "alex@example.com", role: "admin", photo: "/abstract-geometric-shapes.png" },
-  { id: "2", name: "Sarah Miller", email: "sarah@example.com", role: "user", photo: "/number-two-graphic.png" },
-  {
-    id: "5",
-    name: "Michael Brown",
-    email: "michael@example.com",
-    role: "user",
-    photo: "/abstract-geometric-composition-5.png",
-  },
-  { id: "6", name: "Lisa Taylor", email: "lisa@example.com", role: "user", photo: "/abstract-geometric-shapes.png" },
-]
-
-// Mock data for all users (for assigning to organization)
-const mockAllUsers = [
-  {
-    id: "1",
-    name: "Alex Johnson",
-    email: "alex@example.com",
-    role: "admin",
-    photo: "/abstract-geometric-shapes.png",
-    organization: { id: "1", name: "Acme Corp" },
-  },
-  {
-    id: "2",
-    name: "Sarah Miller",
-    email: "sarah@example.com",
-    role: "user",
-    photo: "/number-two-graphic.png",
-    organization: { id: "2", name: "TechGlobal" },
-  },
-  {
-    id: "3",
-    name: "James Wilson",
-    email: "james@example.com",
-    role: "admin",
-    photo: "/abstract-geometric-shapes.png",
-    organization: { id: "3", name: "DataDefense" },
-  },
-  {
-    id: "4",
-    name: "Emily Davis",
-    email: "emily@example.com",
-    role: "user",
-    photo: "/abstract-geometric-shapes.png",
-    organization: { id: "1", name: "Acme Corp" },
-  },
-  {
-    id: "5",
-    name: "Michael Brown",
-    email: "michael@example.com",
-    role: "user",
-    photo: "/abstract-geometric-composition-5.png",
-    organization: { id: "2", name: "TechGlobal" },
-  },
-  {
-    id: "6",
-    name: "Lisa Taylor",
-    email: "lisa@example.com",
-    role: "user",
-    photo: "/abstract-geometric-shapes.png",
-    organization: { id: "1", name: "Acme Corp" },
-  },
-  {
-    id: "7",
-    name: "David Clark",
-    email: "david@example.com",
-    role: "user",
-    photo: "/abstract-geometric-shapes.png",
-    organization: null,
-  },
-  {
-    id: "8",
-    name: "Jennifer White",
-    email: "jennifer@example.com",
-    role: "user",
-    photo: "/abstract-geometric-shapes.png",
-    organization: null,
-  },
-  {
-    id: "9",
-    name: "Robert Green",
-    email: "robert@example.com",
-    role: "user",
-    photo: "/abstract-geometric-shapes.png",
-    organization: null,
-  },
-]
+import { authStateAtom } from "@/lib/jotai/atoms/authState"
+import { useAuth } from "@/hooks/auth.hooks"
+import { useOrganization } from "@/hooks/organization.hooks"
+import { AuthGuard } from "@/components/auth-guard"
+import { organizationsErrorAtom, organizationsLoadingAtom, selectedOrganizationAtom } from "@/lib/jotai/organization-actions"
+import { useUser } from "@/hooks/user.hooks"
+import { useToast } from "@/components/ui/use-toast"
 
 // Mock data for shared reports
 const mockSharedReports = [
@@ -234,52 +90,137 @@ const mockNotifications = [
 
 export default function OrganizationsPage() {
   const [searchQuery, setSearchQuery] = useState("")
-  const [selectedOrg, setSelectedOrg] = useState(null)
+  //const [selectedOrg, setSelectedOrg] = useState(null)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [isAssignUsersDialogOpen, setIsAssignUsersDialogOpen] = useState(false)
   const [selectedUsers, setSelectedUsers] = useState([])
   const [userSearchQuery, setUserSearchQuery] = useState("")
-  const [authState] = useAtom(authStateAtom)
+  const [isCurrentUserFounder, setIsCurrentUserFounder] = useState(false)
+
+  const { authState } = useAuth()
+  const { userOrganizations, fetchUserOrganizations, updateOrganization, setSelectedOrganization, removeOrganization } = useOrganization()
+  const [loading] = useAtom(organizationsLoadingAtom);
+  const [error, setError] = useAtom(organizationsErrorAtom);
+  const [showErrorBadge, setShowErrorBadge] = useState(false)
+  const {allUsers, fetchAllUsers} = useUser();
+  const [selectedOrg] = useAtom(selectedOrganizationAtom)
+  const { toast } = useToast()
+
+  useEffect(() => {
+      if (authState.user?.id) {
+          fetchUserOrganizations();
+      }
+  }, [authState.user?.id, fetchUserOrganizations, selectedOrg]);
+
+  useEffect(() => {
+    if (isAssignUsersDialogOpen) {
+      fetchAllUsers();
+    }
+    // if (selectedOrg) {
+    //   setSelectedUsers(selectedOrg.users.map(user => user.id))
+    // }
+  }, [isAssignUsersDialogOpen, fetchAllUsers]);
+
+  useEffect(() => {
+    if (error) {
+      setShowErrorBadge(true)
+    }
+  }, [error])
+
+  if (loading) return <div>Loading...</div>;
 
   // Filter organizations based on search query
-  const filteredOrgs = mockOrganizations.filter((org) => org.name.toLowerCase().includes(searchQuery.toLowerCase()))
-
-  // Filter users for assignment based on search query
-  const filteredUsers = mockAllUsers.filter(
-    (user) =>
-      user.name.toLowerCase().includes(userSearchQuery.toLowerCase()) ||
-      user.email.toLowerCase().includes(userSearchQuery.toLowerCase()),
-  )
+  const filteredOrgs = userOrganizations?.filter((org) => org.name.toLowerCase().includes(searchQuery.toLowerCase()))
 
   const openOrgDetails = (org) => {
-    setSelectedOrg(org)
+    console.log(org);
+    setSelectedOrganization(org)
     setIsDialogOpen(true)
     // Check if the current user is the founder of this organization
     const isFounder = org.founder.id === authState.user?.id
     setIsCurrentUserFounder(isFounder)
   }
 
-  const [isCurrentUserFounder, setIsCurrentUserFounder] = useState(false)
-
   const openAssignUsersDialog = () => {
     setIsAssignUsersDialogOpen(true)
     // Initialize with users already in the organization
-    setSelectedUsers(mockMembers.map((member) => member.id))
+    setSelectedUsers(selectedOrg.users.map(user => user.id));
   }
 
   const toggleUserSelection = (userId) => {
-    setSelectedUsers((prev) => (prev.includes(userId) ? prev.filter((id) => id !== userId) : [...prev, userId]))
-  }
+    setSelectedUsers(prev =>
+      prev.includes(userId) ? prev.filter(id => id !== userId) : [...prev, userId]
+    );
+  };
 
   const handleAssignUsers = () => {
-    // In a real app, you would send this data to your API
-    console.log("Assigning users to organization:", selectedUsers)
-    setIsAssignUsersDialogOpen(false)
-    // You might want to refresh the members list here
+    updateOrganization({
+      id: selectedOrg.id,
+      userIds: selectedUsers,
+      options: {
+        onSuccess: (updatedOrg) => {
+          console.log("Users assigned successfully:", updatedOrg);
+          setIsAssignUsersDialogOpen(false);
+          setSelectedOrganization(updatedOrg);
+          setSelectedUsers(updatedOrg.users.map(user => user.id)) // Sync selectedUsers
+        },
+        onError: (error) => {
+          console.error("Error assigning users:", error);
+        }
+      }
+    });
+  };
+
+  const handleEditOrganization = (org) => {
+    setSelectedOrganization(org) // Store the organization in the atom
+  }
+
+  const handleDeleteOrganization = (orgId) => {
+    removeOrganization({
+      id: orgId,
+      options: {
+        onSuccess: () => {
+          console.log(`Organization ${orgId} deleted successfully`)
+          setIsDialogOpen(false)
+          setSelectedOrganization(null)
+          toast({
+            title: "Success",
+            description: "Organization deleted successfully",
+          })
+        },
+        onError: (error) => {
+          console.error("Error deleting organization:", error)
+          toast({
+            title: "Error",
+            description: error,
+          })
+        }
+      }
+    })
+  }
+
+  const handleDismissError = () => {
+    setShowErrorBadge(false)
+    setError(null)
   }
 
   return (
+    <AuthGuard>
     <div className="space-y-6">
+      {/* Error Badge */}
+      {showErrorBadge && error && (
+          <div className="fixed top-4 left-1/2 transform -translate-x-1/2 bg-red-600 text-white px-4 py-2 rounded-md shadow-lg flex items-center gap-2 z-50 max-w-md">
+            <span>{error}</span>
+            <button
+              onClick={handleDismissError}
+              className="ml-auto p-1 hover:bg-red-700 rounded-full"
+              aria-label="Dismiss error"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+      )}
+
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Organizations</h1>
@@ -295,7 +236,7 @@ export default function OrganizationsPage() {
 
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle>All Organizations</CardTitle>
+          <CardTitle>My Organizations</CardTitle>
           <CardDescription>View and manage all organizations in the system</CardDescription>
         </CardHeader>
         <CardContent>
@@ -354,8 +295,8 @@ export default function OrganizationsPage() {
                           <span>{org.founder.name}</span>
                         </div>
                       </TableCell>
-                      <TableCell className="text-center">{org.userCount}</TableCell>
-                      <TableCell className="text-center">{org.reportCount}</TableCell>
+                      <TableCell className="text-center">{org.users.length}</TableCell>
+                      <TableCell className="text-center">{org.reports.length}</TableCell>
                       <TableCell className="text-right">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
@@ -369,20 +310,22 @@ export default function OrganizationsPage() {
                               <Building2 className="mr-2 h-4 w-4" />
                               View Details
                             </DropdownMenuItem>
-                            <DropdownMenuItem asChild>
+                            <DropdownMenuItem asChild onClick={() => handleEditOrganization(org)}>
                               <Link href={`/dashboard/organizations/${org.id}/edit`}>
                                 <Building2 className="mr-2 h-4 w-4" />
                                 Edit Organization
                               </Link>
                             </DropdownMenuItem>
                             <DropdownMenuItem asChild>
-                              <Link href={`/dashboard/organizations/${org.id}/reports`}>
+                              <Link href={`/dashboard/reports`}>
                                 <FileText className="mr-2 h-4 w-4" />
                                 View Reports
                               </Link>
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
-                            <DropdownMenuItem className="text-destructive">Delete Organization</DropdownMenuItem>
+                            <DropdownMenuItem className="text-destructive"
+                            onClick={() => handleDeleteOrganization(org.id)}
+                            >Delete Organization</DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>
@@ -433,21 +376,21 @@ export default function OrganizationsPage() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {mockMembers.map((member) => (
-                        <TableRow key={member.id}>
+                      {selectedOrg.users.map((user) => (
+                        <TableRow key={user.id}>
                           <TableCell>
                             <div className="flex items-center gap-2">
                               <Avatar className="h-8 w-8">
-                                <AvatarImage src={member.photo || "/placeholder.svg"} alt={member.name} />
-                                <AvatarFallback>{member.name.charAt(0)}</AvatarFallback>
+                                <AvatarImage src={user.photo || "/placeholder.svg"} alt={user.name} />
+                                <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
                               </Avatar>
-                              <span>{member.name}</span>
+                              <span>{user.name}</span>
                             </div>
                           </TableCell>
-                          <TableCell>{member.email}</TableCell>
+                          <TableCell>{user.email}</TableCell>
                           <TableCell>
-                            <Badge variant={member.role === "admin" ? "default" : "secondary"}>
-                              {member.role === "admin" ? "Admin" : "User"}
+                            <Badge>
+                              {user.id === selectedOrg.founderId ? "Founder" : "Member"}
                             </Badge>
                           </TableCell>
                           <TableCell className="text-right">
@@ -546,13 +489,13 @@ export default function OrganizationsPage() {
 
             <div className="flex justify-between mt-4">
               <Button variant="outline" asChild>
-                <Link href={`/dashboard/organizations/${selectedOrg.id}/reports`}>
+                <Link href={`/dashboard/reports`}>
                   <FileText className="mr-2 h-4 w-4" />
                   View Reports
                 </Link>
               </Button>
               <Button asChild>
-                <Link href={`/dashboard/organizations/${selectedOrg?.id}/edit`}>
+                <Link href={`/dashboard/organizations/${selectedOrg?.id}/edit`} onClick={() => handleEditOrganization(selectedOrg)}>
                   <Building2 className="mr-2 h-4 w-4" />
                   Edit Organization
                 </Link>
@@ -594,36 +537,34 @@ export default function OrganizationsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredUsers.map((user) => (
-                  <TableRow key={user.id}>
-                    <TableCell>
-                      <Checkbox
-                        checked={selectedUsers.includes(user.id)}
-                        onCheckedChange={() => toggleUserSelection(user.id)}
-                        id={`user-${user.id}`}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <Avatar className="h-8 w-8">
-                          <AvatarImage src={user.photo || "/placeholder.svg"} alt={user.name} />
-                          <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
-                        </Avatar>
-                        <label htmlFor={`user-${user.id}`} className="cursor-pointer">
-                          {user.name}
-                        </label>
-                      </div>
-                    </TableCell>
-                    <TableCell>{user.email}</TableCell>
-                    <TableCell>
-                      {user.organization ? (
-                        <span>{user.organization.name}</span>
-                      ) : (
-                        <span className="text-muted-foreground">None</span>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))}
+              {allUsers
+                  .filter(user =>
+                    user.name.toLowerCase().includes(userSearchQuery.toLowerCase()) ||
+                    user.email.toLowerCase().includes(userSearchQuery.toLowerCase())
+                  )
+                  .map(user => (
+                    <TableRow key={user.id}>
+                      <TableCell>
+                        <Checkbox
+                          checked={selectedUsers.includes(user.id)}
+                          onCheckedChange={() => toggleUserSelection(user.id)}
+                          id={`user-${user.id}`}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Avatar className="h-8 w-8">
+                            <AvatarImage src={user.photo || "/placeholder.svg"} alt={user.name} />
+                            <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
+                          </Avatar>
+                          <label htmlFor={`user-${user.id}`} className="cursor-pointer">
+                            {user.name}
+                          </label>
+                        </div>
+                      </TableCell>
+                      <TableCell>{user.email}</TableCell>
+                    </TableRow>
+                  ))}
               </TableBody>
             </Table>
           </div>
@@ -640,5 +581,6 @@ export default function OrganizationsPage() {
         </DialogContent>
       </Dialog>
     </div>
+    </AuthGuard>
   )
 }

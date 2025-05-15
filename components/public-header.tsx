@@ -6,7 +6,7 @@ import { useAtom } from "jotai"
 
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { sidebarOpenAtom } from "@/lib/jotai/atoms"
+import { sidebarOpenAtom } from "@/lib/jotai/atoms/atoms"
 import Link from "next/link"
 
 export function PublicHeader() {

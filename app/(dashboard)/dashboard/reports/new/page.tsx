@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
@@ -19,38 +19,35 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useToast } from "@/components/ui/use-toast"
 import { calculateHash } from "@/lib/utils"
-import { authStateAtom } from "@/lib/jotai/atoms"
+import { authStateAtom } from "@/lib/jotai/atoms/authState"
+import { useReport } from "@/hooks/report.hooks"
+import { useOrganization } from "@/hooks/organization.hooks"
 
 // Remove the organizationId field from the form schema
 const reportFormSchema = z.object({
+  organizationId: z.string().min(1, { message: "Please select an organization." }),
   title: z.string().min(5, {
     message: "Title must be at least 5 characters.",
   }),
   description: z.string().min(10, {
     message: "Description must be at least 10 characters.",
   }),
-  typeOfThreat: z.string({
-    required_error: "Please select a threat type.",
+  typeOfThreat: z.string().nonempty({
+    message: "Please select a threat type.",
   }),
-  severity: z.string({
-    required_error: "Please select a severity level.",
+  severity: z.string().nonempty({
+    message: "Please select a severity level.",
   }),
   status: z.string({
     required_error: "Please select a status.",
   }),
   riskScore: z.coerce.number().min(0).max(100).optional(),
-  stix: z.string().optional(),
-  emailsToShare: z.string().optional(),
+  stix: z.string().min(5, {
+    message: "Title must be at least 1 characters.",
+  }),
 })
 
 type ReportFormValues = z.infer<typeof reportFormSchema>
-
-// Mock organizations for the dropdown
-const mockOrganizations = [
-  { id: "org-1", name: "CyberShield Inc." },
-  { id: "org-2", name: "SecureNet Solutions" },
-  { id: "org-3", name: "Digital Defense Group" },
-]
 
 export default function NewReportPage() {
   const { toast } = useToast()
@@ -58,73 +55,88 @@ export default function NewReportPage() {
   const [authState] = useAtom(authStateAtom)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [attachments, setAttachments] = useState<string[]>([])
+  const { createReport } = useReport()
+  const { userOrganizations, fetchUserOrganizations } = useOrganization()
+  
+  const defaultValues: Partial<ReportFormValues> = {
+    organizationId: userOrganizations.length === 1 ? userOrganizations[0].id : "",
+    title: "",
+    description: "",
+    typeOfThreat: "",
+    severity: "",
+    status: "Draft",
+    riskScore: 50,
+    stix: "",
+  }
 
-  // Update the defaultValues to remove organizationId
   const form = useForm<ReportFormValues>({
     resolver: zodResolver(reportFormSchema),
-    defaultValues: {
-      title: "",
-      description: "",
-      typeOfThreat: "",
-      severity: "",
-      status: "Draft",
-      riskScore: 50,
-      stix: "",
-      emailsToShare: "",
-    },
+    defaultValues,
+    mode: "onChange",
   })
 
+  useEffect(() => {
+      if (authState.user?.id) {
+          fetchUserOrganizations();
+      }
+  }, [authState.user?.id, fetchUserOrganizations]);
+  
+
+  if (!userOrganizations || userOrganizations.length === 0) {
+    return (
+      <div>
+        <p>You need to be part of an organization to create a report.</p>
+        <Button onClick={() => router.push("/dashboard/organizations/new")}>Create Organization</Button>
+      </div>
+    )
+  }
+
+  
+
   // Update the onSubmit function to use the user's organization
-  function onSubmit(data: ReportFormValues) {
+  async function onSubmit(data: ReportFormValues) {
     setIsSubmitting(true)
-
-    // Generate a timestamp and hash for blockchain simulation
-    const timestamp = new Date().toISOString()
-    const reportData = JSON.stringify({ ...data, timestamp })
-    const reportHash = calculateHash(reportData)
-
-    // Parse emails to share into an array
-    const emailsArray = data.emailsToShare ? data.emailsToShare.split(",").map((email) => email.trim()) : []
-
-    // Create the report object following the required structure
-    const report = {
-      id: `report-${Date.now()}`, // Generate a temporary ID (would be done by the backend)
-      title: data.title,
-      description: data.description,
-      attachments: attachments,
-      typeOfThreat: data.typeOfThreat,
-      severity: data.severity,
-      status: data.status,
-      submittedAt: timestamp,
-      stix: data.stix || "{}",
-      blockchainHash: reportHash,
-      riskScore: data.riskScore || 50,
-      emailsToShare: emailsArray,
-      author: authState.user,
-      organization: authState.user.organization, // Use the user's organization
-      sharedReports: [],
-    }
-
-    console.log("Submitting report:", report)
-
-    // Simulate API call
-    setTimeout(() => {
-      setIsSubmitting(false)
-      toast({
-        title: "Report submitted",
-        description: "Your incident report has been created successfully.",
+    try {
+      await createReport({
+        organizationId: data.organizationId,
+        reportData: {
+          title: data.title,
+          description: data.description,
+          typeOfThreat: data.typeOfThreat,
+          severity: data.severity,
+          status: data.status,
+          organizationId: data.organizationId,
+          //attachments: attachments,
+          riskScore: data.riskScore,
+          stix: data.stix,
+        },
+        options: {
+          onSuccess: () => {
+            toast({
+              title: "Report created",
+              description: "Your incident report has been created successfully.",
+            })
+            router.push("/dashboard/reports")
+          },
+          onError: (error) => {
+            toast({
+              variant: "destructive",
+              title: "Error",
+              description: error.message || "Failed to create report.",
+            })
+            setIsSubmitting(false)
+          },
+        },
       })
-
-      // Show blockchain confirmation toast
-      setTimeout(() => {
-        toast({
-          title: "Blockchain verification",
-          description: `Report hash ${reportHash.substring(0, 8)}... has been recorded`,
-        })
-      }, 1500)
-
-      router.push("/dashboard/reports")
-    }, 2000)
+    } catch (error) {
+      console.error("Create report failed:", error)
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "An unexpected error occurred.",
+      })
+      setIsSubmitting(false)
+    }
   }
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -162,6 +174,32 @@ export default function NewReportPage() {
         <CardContent>
           <Form {...form}>
             <form id="report-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+               {/* Organization Select Field */}
+               <FormField
+                control={form.control}
+                name="organizationId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Organization</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select organization" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {userOrganizations?.map((org) => (
+                          <SelectItem key={org.id} value={org.id}>
+                            {org.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
               <FormField
                 control={form.control}
                 name="title"
@@ -291,7 +329,7 @@ export default function NewReportPage() {
                 )}
               />
 
-              <FormField
+              {/* <FormField
                 control={form.control}
                 name="attachments"
                 render={() => (
@@ -326,7 +364,7 @@ export default function NewReportPage() {
                     <FormMessage />
                   </FormItem>
                 )}
-              />
+              /> */}
 
               <FormField
                 control={form.control}
@@ -341,22 +379,7 @@ export default function NewReportPage() {
                         {...field}
                       />
                     </FormControl>
-                    <FormDescription>Optional STIX 2.1 formatted data in JSON</FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="emailsToShare"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Share with (Emails)</FormLabel>
-                    <FormControl>
-                      <Input placeholder="email1@example.com, email2@example.com" {...field} />
-                    </FormControl>
-                    <FormDescription>Enter email addresses separated by commas</FormDescription>
+                    <FormDescription>STIX 2.1 formatted data in JSON</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -370,11 +393,11 @@ export default function NewReportPage() {
           </Button>
           <Button type="submit" form="report-form" disabled={isSubmitting}>
             {isSubmitting ? (
-              <>Submitting...</>
+              <>Creating...</>
             ) : (
               <>
                 <Save className="mr-2 h-4 w-4" />
-                Submit Report
+                Create Report
               </>
             )}
           </Button>

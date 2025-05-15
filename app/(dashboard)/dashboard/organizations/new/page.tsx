@@ -16,24 +16,13 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useToast } from "@/components/ui/use-toast"
-import { authStateAtom } from "@/lib/jotai/atoms"
+import { authStateAtom } from "@/lib/jotai/atoms/authState"
+import { useAuth } from "@/hooks/auth.hooks"
+import { useOrganization } from "@/hooks/organization.hooks"
 
 const organizationFormSchema = z.object({
   name: z.string().min(3, {
     message: "Organization name must be at least 3 characters.",
-  }),
-  description: z.string().min(10, {
-    message: "Description must be at least 10 characters.",
-  }),
-  website: z
-    .string()
-    .url({
-      message: "Please enter a valid URL.",
-    })
-    .optional()
-    .or(z.literal("")),
-  industry: z.string({
-    required_error: "Please select an industry.",
   }),
 })
 
@@ -42,16 +31,14 @@ type OrganizationFormValues = z.infer<typeof organizationFormSchema>
 export default function NewOrganizationPage() {
   const { toast } = useToast()
   const router = useRouter()
-  const [authState] = useAtom(authStateAtom)
+  const { authState } = useAuth()
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const { createOrganization } = useOrganization()
 
   const form = useForm<OrganizationFormValues>({
     resolver: zodResolver(organizationFormSchema),
     defaultValues: {
       name: "",
-      description: "",
-      website: "",
-      industry: "",
     },
   })
 
@@ -62,9 +49,6 @@ export default function NewOrganizationPage() {
     const organization = {
       id: `org-${Date.now()}`, // Generate a temporary ID (would be done by the backend)
       name: data.name,
-      description: data.description,
-      website: data.website,
-      industry: data.industry,
       founder: authState.user,
       users: [authState.user], // Initialize with the founder as the first user
       reports: [], // Initialize with empty reports
@@ -72,17 +56,28 @@ export default function NewOrganizationPage() {
       sharedReportsReceived: [], // Initialize with empty shared reports received
     }
 
-    console.log("Creating organization:", organization)
-
-    // Simulate API call
-    setTimeout(() => {
-      setIsSubmitting(false)
-      toast({
-        title: "Organization created",
-        description: "Your organization has been created successfully.",
-      })
-      router.push("/dashboard/organizations")
-    }, 1500)
+    createOrganization({
+      name: data.name,
+      options: {
+        onSuccess: (newOrganization) => {
+          toast({
+            title: "Profile updated",
+            description: "Your profile has been updated successfully.",
+          });
+          setIsSubmitting(false)
+          router.push("/dashboard/organizations")
+        },
+        onError: (error) => {
+          toast({
+            variant: "destructive",
+            title: "Error",
+            description: error.message || "Failed to update profile.",
+          });
+          setIsSubmitting(false)
+        },
+      },
+    });
+    
   }
 
   return (
@@ -124,7 +119,7 @@ export default function NewOrganizationPage() {
                 )}
               />
 
-              <FormField
+              {/* <FormField
                 control={form.control}
                 name="industry"
                 render={({ field }) => (
@@ -152,9 +147,9 @@ export default function NewOrganizationPage() {
                     <FormMessage />
                   </FormItem>
                 )}
-              />
+              /> */}
 
-              <FormField
+              {/* <FormField
                 control={form.control}
                 name="website"
                 render={({ field }) => (
@@ -167,9 +162,9 @@ export default function NewOrganizationPage() {
                     <FormMessage />
                   </FormItem>
                 )}
-              />
+              /> */}
 
-              <FormField
+              {/* <FormField
                 control={form.control}
                 name="description"
                 render={({ field }) => (
@@ -182,7 +177,7 @@ export default function NewOrganizationPage() {
                     <FormMessage />
                   </FormItem>
                 )}
-              />
+              /> */}
 
               <div className="bg-muted/50 p-4 rounded-md">
                 <p className="text-sm font-medium">Founder Information</p>

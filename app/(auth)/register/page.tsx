@@ -6,60 +6,130 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Shield } from "lucide-react"
-import { useAtom } from "jotai"
+import { useSetAtom } from "jotai"
+import { loginAtom, registerAtom } from "@/lib/jotai/auth-actions"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { useToast } from "@/components/ui/use-toast"
-import { authStateAtom } from "@/lib/jotai/atoms"
-import { register } from "@/lib/jotai/auth-actions"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { useToken, useLoginWithEmail} from '@privy-io/react-auth';
+
+interface SignUpFormState {
+  data: {
+    email: string;
+    name: string;
+    jobTitle: string;
+    code: string;
+  };
+  error?: string;
+}
+
+const initialState: SignUpFormState = {
+  data: {
+    email: '',
+    name: '',
+    jobTitle: '',
+    code: '',
+  },
+};
 
 export default function RegisterPage() {
+  const [state, setState] = useState(initialState);
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [isCodeSent, setIsCodeSent] = useState(false);
   const router = useRouter()
   const { toast } = useToast()
-  const [, setAuthState] = useAtom(authStateAtom)
+  const { getAccessToken } = useToken();
+  const login = useSetAtom(loginAtom);
+  const register = useSetAtom(registerAtom);
+
+  const { sendCode, loginWithCode } = useLoginWithEmail({
+    onComplete: async () => {
+      try {
+        const privyAccessToken = await getAccessToken();
+        if (privyAccessToken != null) {
+          // Attempt to sign in using Privy with the token
+          await login({
+            privyAccessToken, 
+            options: {
+              onSuccess: (user) => {
+                toast({
+                  title: "Login successful",
+                  description: `Welcome back, ${user.name}!`,
+                });
+                router.push("/dashboard")
+              },
+              onError: async(err) => {
+                await register({
+                  privyAccessToken, 
+                  name: state.data.name,
+                  jobTitle: state.data.jobTitle,
+                  options: {
+                    onSuccess: (user) => {
+                      toast({
+                        title: "Register successful",
+                        description: `Welcome back, ${user.name}!`,
+                      });
+                      router.push("/dashboard")
+                    },
+                    onError: (err) => {
+                      toast({
+                        title: "Register failed",
+                        description: err?.message || "Please try again.",
+                      });
+                    },
+                  },
+                });
+              },
+            },
+          });
+        } else {
+        }
+      } catch (err) {
+        console.error('Error in onComplete:', err);
+      }
+    },
+    onError: error => {
+      console.error('Error during email authentication:', error);
+    },
+  });
+
+  const validateForm = (): boolean => {
+    if (!state.data.email.trim()) {
+      setState({ ...state, error: 'Email is required' });
+      return false;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(state.data.email)) {
+      setState({ ...state, error: 'Invalid email format' });
+      return false;
+    }
+    if (isCodeSent && !state.data.code.trim()) {
+      setState({ ...state, error: 'Verification code is required' });
+      return false;
+    }
+    if (!state.data.name.trim()) {
+      setState({ ...state, error: 'Name is required' });
+      return false;
+    }
+    if (!state.data.jobTitle.trim()) {
+      setState({ ...state, error: 'Job title is required' });
+      return false;
+    }
+    return true;
+  };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
+    if (!validateForm()) return; // Stop if validation fails
     setIsLoading(true)
     setError(null)
-
-    const formData = new FormData(e.currentTarget)
-    const email = formData.get("email") as string
-    const password = formData.get("password") as string
-    const confirmPassword = formData.get("confirmPassword") as string
-    const firstName = formData.get("firstName") as string
-    const lastName = formData.get("lastName") as string
-    const organization = formData.get("organization") as string
-
-    if (password !== confirmPassword) {
-      setError("Passwords do not match")
-      setIsLoading(false)
-      return
-    }
-
+    console.log("here");
     try {
-      const authState = await register({
-        email,
-        password,
-        firstName,
-        lastName,
-        organization,
-      })
-
-      setAuthState(authState)
-
-      toast({
-        title: "Registration successful",
-        description: `Welcome, ${authState.user?.firstName}!`,
-      })
-
-      router.push("/dashboard")
+      await loginWithCode({ code: state.data.code });
     } catch (error) {
       setError((error as Error).message)
       setIsLoading(false)
@@ -78,43 +148,81 @@ export default function RegisterPage() {
         </CardHeader>
         <form onSubmit={handleSubmit}>
           <CardContent className="space-y-4">
-            {error && (
+            {state.error && (
               <Alert variant="destructive">
-                <AlertDescription>{error}</AlertDescription>
+                <AlertDescription>{state.error}</AlertDescription>
               </Alert>
             )}
-
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="firstName">First name</Label>
-                <Input id="firstName" name="firstName" required />
+                <Label htmlFor="name">Name</Label>
+                <Input id="name" name="name" required
+                  defaultValue={state.data.name}
+                  onChange={event =>
+                    setState({
+                      ...state,
+                      data: { ...state.data, name: event.target.value },
+                      error: undefined,
+                    })
+                  }
+                />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="lastName">Last name</Label>
-                <Input id="lastName" name="lastName" required />
+                <Label htmlFor="jobTitle">Job title</Label>
+                <Input id="jobTitle" name="jobTitle" required 
+                  defaultValue={state.data.jobTitle}
+                  onChange={event =>
+                    setState({
+                      ...state,
+                      data: { ...state.data, jobTitle: event.target.value },
+                      error: undefined,
+                    })
+                  }
+                />
               </div>
             </div>
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
-              <Input id="email" name="email" type="email" placeholder="name@example.com" required />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="organization">Organization</Label>
-              <Input id="organization" name="organization" required />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input id="password" name="password" type="password" required />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="confirmPassword">Confirm Password</Label>
-              <Input id="confirmPassword" name="confirmPassword" type="password" required />
+              <Input id="email" name="email" type="email" placeholder="name@example.com" required 
+                defaultValue={state.data.email}
+                onChange={event =>
+                  setState({
+                    ...state,
+                    data: { ...state.data, email: event.target.value },
+                    error: undefined,
+                  })
+                }
+              />
+              <Label htmlFor="code">Code</Label>
+              <Input 
+                id="code" name="code" type="text" required
+                defaultValue={state.data.code}
+                placeholder='Verification Code'
+                onChange={event =>
+                  setState({
+                    ...state,
+                    data: { ...state.data, code: event.target.value },
+                    error: undefined,
+                  })
+                }
+              />
             </div>
           </CardContent>
           <CardFooter className="flex flex-col space-y-4">
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? "Creating account..." : "Create account"}
+            <Button
+              className='w-full'
+              onClick={() => {
+                sendCode({ email: state.data.email });
+                setIsCodeSent(true);
+              }}
+              >
+              Send Code
             </Button>
+            {state.data.email.trim() !== '' && isCodeSent && (
+              <Button type="submit" className="w-full" disabled={isLoading}>
+              {isLoading ? "Creating account..." : "Create account"}
+              </Button>
+            )}
             <div className="text-center text-sm">
               Already have an account?{" "}
               <Link href="/login" className="text-primary hover:underline">
