@@ -1,125 +1,122 @@
-import { mockUsers } from "../mock-data"
-import type { AuthState, User } from "./atoms"
+import { ActionOptions } from "./action-options";
+import { User } from "./atoms/user";
+import { authStateAtom } from "./atoms/authState";
+import { atom } from "jotai";
+import { HttpStatusCode } from 'axios';
+import { api } from "@/utils/api";
 
-// Simulated API delay
-const apiDelay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+export const loginAtom = atom(
+  null,
+  async (get, set, { privyAccessToken , options }: { privyAccessToken: string; options?: ActionOptions }) => {
+    set(authStateAtom, { ...get(authStateAtom), isLoading: true, error: null });
 
-// Login function
-export const login = async (email: string, password: string): Promise<AuthState> => {
-  // Simulate API call
-  await apiDelay(800)
+    try {
+      const response = await api.post("/auth/login/privy", { privyAccessToken });
 
-  // Find user with matching credentials
-  const user = mockUsers.find((u) => u.email.toLowerCase() === email.toLowerCase() && u.password === password)
-
-  if (!user) {
-    throw new Error("Invalid email or password")
+      if (response.status === 201) {
+        const user = response.data;
+        console.log(user);
+        set(authStateAtom, { user, isAuthenticated: true, isLoading: false, error: null });
+        console.log("Updated auth state:", get(authStateAtom));
+        options?.onSuccess?.(user);
+      } else {
+        throw new Error("Login failed");
+      }
+    } catch (error: any) {
+      const message = error?.response?.data?.message || "Login error";
+      set(authStateAtom, { ...get(authStateAtom), isLoading: false, error: message });
+      options?.onError?.(error);
+    }
   }
+);
 
-  // Create user object without password
-  const { password: _, ...userWithoutPassword } = user
+export const registerAtom = atom(
+  null,
+  async (get, set, { privyAccessToken , name, jobTitle, options }: { privyAccessToken: string; name: string; jobTitle: string; options?: ActionOptions }) => {
+    set(authStateAtom, { ...get(authStateAtom), isLoading: true, error: null });
 
-  return {
-    user: userWithoutPassword as User,
-    isAuthenticated: true,
-    isLoading: false,
-    error: null,
+    try {
+      const response = await api.post("/auth/register/privy", { 
+        privyAccessToken,
+        name,
+        jobTitle, 
+       });
+
+      if (response.status === 201) {
+        const user = response.data;
+        console.log(user);
+        set(authStateAtom, { user, isAuthenticated: true, isLoading: false, error: null });
+        options?.onSuccess?.(user);
+      } else {
+        throw new Error("Register failed");
+      }
+    } catch (error: any) {
+      const message = error?.response?.data?.message || "Login error";
+      set(authStateAtom, { ...get(authStateAtom), isLoading: false, error: message });
+      options?.onError?.(error);
+    }
   }
-}
+);
 
-// Logout function
-export const logout = async (): Promise<AuthState> => {
-  // Simulate API call
-  await apiDelay(500)
+export const logoutAtom = atom(
+  null,
+  async (
+    get,
+    set,
+    options?: ActionOptions,
+  ) => {
+    set(authStateAtom, { ...get(authStateAtom), isLoading: true, error: null });
 
-  return {
-    user: null,
-    isAuthenticated: false,
-    isLoading: false,
-    error: null,
-  }
-}
+    try {
+      const response = await api.post('auth/logout');
+      console.log('logout response', response)
+      if ([HttpStatusCode.Ok, HttpStatusCode.Created].includes(response.status)) {
+        set(authStateAtom, { user: null, isAuthenticated: false, isLoading: false, error: null });
+        options?.onSuccess?.(response.data);
+      }
+    } catch (error: any) {
+      const message = error?.response?.data?.message || "Logout error";
+      options?.onError?.(error);
+      set(authStateAtom, { ...get(authStateAtom), isLoading: false, error: message });
+    }
+  },
+);
 
-// Register function (mock)
-export const register = async (userData: {
-  email: string
-  password: string
-  firstName: string
-  lastName: string
-  organization: string
-}): Promise<AuthState> => {
-  // Simulate API call
-  await apiDelay(1000)
-
-  // Check if user already exists
-  const existingUser = mockUsers.find((u) => u.email.toLowerCase() === userData.email.toLowerCase())
-
-  if (existingUser) {
-    throw new Error("User with this email already exists")
-  }
-
-  // Create new user (in a real app, this would be saved to a database)
-  const newUser: User = {
-    id: `user-${Date.now()}`,
-    email: userData.email,
-    firstName: userData.firstName,
-    lastName: userData.lastName,
-    organization: userData.organization,
-    role: "user",
-    jobTitle: "New User",
-    avatar: "/avatars/default-avatar.png",
-  }
-
-  return {
-    user: newUser,
-    isAuthenticated: true,
-    isLoading: false,
-    error: null,
-  }
-}
-
-// Get current user function
-export const getCurrentUser = async (): Promise<User | null> => {
-  // In a real app, this would validate the token with the server
-  await apiDelay(300)
-
-  // Get user from localStorage (this is just for the mock implementation)
-  const authData = localStorage.getItem("cybershield_auth")
-  if (!authData) return null
-
-  try {
-    const parsedData = JSON.parse(authData)
-    return parsedData.user
-  } catch (error) {
-    return null
-  }
-}
-
-// Update user profile
-export const updateUserProfile = async (userId: string, profileData: Partial<User>): Promise<User> => {
-  // Simulate API call
-  await apiDelay(1000)
-
-  // Get current user
-  const authData = localStorage.getItem("cybershield_auth")
-  if (!authData) throw new Error("User not found")
-
-  try {
-    const parsedData = JSON.parse(authData)
-    const currentUser = parsedData.user
-
-    if (!currentUser || currentUser.id !== userId) {
-      throw new Error("Unauthorized")
+export const fetchUserAtom = atom(
+  (get) => get(authStateAtom),
+  async (get, set, options?: ActionOptions) => {
+    const authState = get(authStateAtom);
+    if (!authState.isAuthenticated) {
+      set(logoutAtom, options);
+      return;
     }
 
-    // Update user data
-    const updatedUser = {
-      ...currentUser,
-      ...profileData,
-    }
+    set(authStateAtom, { ...authState, isLoading: true, error: null });
 
-    return updatedUser
-  } catch (error) {
-    throw new Error("Failed to update profile")
+    try {
+      console.log("before");
+      const response = await api.get("/auth/user");
+      console.log(response);
+      if (response.status === 200) {
+        const user = response.data;
+        set(authStateAtom, { ...authState, user, isLoading: false, error: null });
+        options?.onSuccess?.(user);
+      } else if (response.status === 403) { //if server returns 403 - session is expired
+        const user = response.data;
+        set(authStateAtom, { user: null, isAuthenticated: false, isLoading: false, error: null });
+        options?.onSuccess?.(user);
+      } else {
+        throw new Error("Failed to fetch user data");
+      }
+    } catch (error: any) {
+      console.log("error", error);
+      const message = error?.response?.data?.message || "Error fetching user data";
+      if (error.status === 403) {
+        set(authStateAtom, { user: null, isAuthenticated: false, isLoading: false, error: null });
+      } else {
+        set(authStateAtom, { ...authState, isLoading: false, error: message });
+      }
+      options?.onError?.(error);
+    }
   }
-}
+);

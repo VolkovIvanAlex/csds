@@ -5,13 +5,14 @@ import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
 import { Toaster } from "@/components/ui/toaster"
 import { JotaiProvider } from "@/components/jotai-provider"
+import { PrivyProvider } from '@privy-io/react-auth';
+import PrivyProviders from "@/components/privy-provider"
 
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "CyberShield - Incident Management Platform",
+  title: "CSDS - Incident Management Platform",
   description: "Track and manage cybersecurity incidents",
-    generator: 'v0.dev'
 }
 
 export default function RootLayout({
@@ -21,13 +22,15 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={inter.className}>
-        <JotaiProvider>
-          <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
-            {children}
-            <Toaster />
-          </ThemeProvider>
-        </JotaiProvider>
+      <body className={`${inter.className} min-h-screen`}>
+        <PrivyProviders>
+          <JotaiProvider>
+            <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+              {children}
+              <Toaster />
+            </ThemeProvider>
+          </JotaiProvider>
+        </PrivyProviders>
       </body>
     </html>
   )

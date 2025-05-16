@@ -15,6 +15,8 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useToast } from "@/components/ui/use-toast"
 import Link from "next/link"
+import { useAtom } from "jotai"
+import { selectedReportAtom } from "@/lib/jotai/report-actions"
 
 // Sample report data - in a real app, this would be fetched from an API based on the ID
 const reports = {
@@ -109,13 +111,11 @@ const reportFormSchema = z.object({
 
 type ReportFormValues = z.infer<typeof reportFormSchema>
 
-export default function EditReportPage({ params }: { params: { id: string } }) {
+export default function EditReportPage() {
   const { toast } = useToast()
   const router = useRouter()
   const [isSubmitting, setIsSubmitting] = useState(false)
-
-  // Get the report based on the ID parameter
-  const report = reports[params.id] || null
+  const [report] = useAtom(selectedReportAtom)
 
   const defaultValues: ReportFormValues = report
     ? {

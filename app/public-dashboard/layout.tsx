@@ -3,7 +3,7 @@
 import type React from "react"
 import { Sidebar } from "@/components/sidebar"
 import { PublicHeader } from "@/components/public-header"
-import { sidebarOpenAtom } from "@/lib/jotai/atoms"
+import { sidebarOpenAtom } from "@/lib/jotai/atoms/atoms"
 import { useAtom } from "jotai"
 
 export default function PublicDashboardLayout({

@@ -14,95 +14,28 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/components/ui/use-toast"
 import Link from "next/link"
-
-// Sample organization data - in a real app, this would be fetched from an API based on the ID
-const organizations = {
-  "1": {
-    id: "1",
-    name: "Acme Corp",
-    description: "A global leader in security solutions",
-    website: "https://acme.example.com",
-    contactEmail: "security@acme.example.com",
-    contactPhone: "+1 (555) 123-4567",
-    address: "123 Security Blvd, Cyber City, CS 12345",
-  },
-  "2": {
-    id: "2",
-    name: "TechGlobal",
-    description: "Innovative technology solutions for modern security challenges",
-    website: "https://techglobal.example.com",
-    contactEmail: "info@techglobal.example.com",
-    contactPhone: "+1 (555) 987-6543",
-    address: "456 Innovation Way, Tech Valley, TV 67890",
-  },
-  "3": {
-    id: "3",
-    name: "DataDefense",
-    description: "Specialized in data protection and threat intelligence",
-    website: "https://datadefense.example.com",
-    contactEmail: "contact@datadefense.example.com",
-    contactPhone: "+1 (555) 456-7890",
-    address: "789 Secure Drive, Data Harbor, DH 54321",
-  },
-  "4": {
-    id: "4",
-    name: "SecureNet",
-    description: "Network security and infrastructure protection",
-    website: "https://securenet.example.com",
-    contactEmail: "support@securenet.example.com",
-    contactPhone: "+1 (555) 789-0123",
-    address: "321 Network Lane, Firewall City, FC 09876",
-  },
-}
+import { useOrganization } from "@/hooks/organization.hooks"
+import { useAtom } from "jotai"
+import { selectedOrganizationAtom } from "@/lib/jotai/organization-actions"
 
 const organizationFormSchema = z.object({
   name: z.string().min(2, {
     message: "Organization name must be at least 2 characters.",
   }),
-  description: z.string().min(10, {
-    message: "Description must be at least 10 characters.",
-  }),
-  website: z.string().url({
-    message: "Please enter a valid URL.",
-  }),
-  contactEmail: z.string().email({
-    message: "Please enter a valid email address.",
-  }),
-  contactPhone: z.string().min(5, {
-    message: "Please enter a valid phone number.",
-  }),
-  address: z.string().min(5, {
-    message: "Please enter a valid address.",
-  }),
 })
 
 type OrganizationFormValues = z.infer<typeof organizationFormSchema>
 
-export default function EditOrganizationPage({ params }: { params: { id: string } }) {
+export default function EditOrganizationPage() {
   const { toast } = useToast()
   const router = useRouter()
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [organization] = useAtom(selectedOrganizationAtom)
+  const { updateOrganization } = useOrganization()
 
-  // Get the organization based on the ID parameter
-  const organization = organizations[params.id] || null
-
-  const defaultValues: OrganizationFormValues = organization
-    ? {
-        name: organization.name,
-        description: organization.description,
-        website: organization.website,
-        contactEmail: organization.contactEmail,
-        contactPhone: organization.contactPhone,
-        address: organization.address,
-      }
-    : {
-        name: "",
-        description: "",
-        website: "",
-        contactEmail: "",
-        contactPhone: "",
-        address: "",
-      }
+  const defaultValues: OrganizationFormValues = {
+    name: organization?.name || "",
+  }
 
   const form = useForm<OrganizationFormValues>({
     resolver: zodResolver(organizationFormSchema),
@@ -112,16 +45,29 @@ export default function EditOrganizationPage({ params }: { params: { id: string 
 
   function onSubmit(data: OrganizationFormValues) {
     setIsSubmitting(true)
-
-    // Simulate API call
-    setTimeout(() => {
-      setIsSubmitting(false)
-      toast({
-        title: "Organization updated",
-        description: "The organization has been updated successfully.",
-      })
-      router.push("/dashboard/organizations")
-    }, 1500)
+    updateOrganization({
+      id: organization.id,
+      name: data.name,
+      options: {
+        onSuccess: () => {
+          setIsSubmitting(false)
+          toast({
+            title: "Organization updated",
+            description: "The organization has been updated successfully.",
+          })
+          //router.push("/dashboard/organizations")
+        },
+        onError: (error) => {
+          setIsSubmitting(false)
+          toast({
+            title: "Error",
+            description: "Failed to update organization.",
+            variant: "destructive",
+          })
+          console.error("Error updating organization:", error)
+        },
+      },
+    })
   }
 
   // If organization not found, show error
@@ -168,79 +114,6 @@ export default function EditOrganizationPage({ params }: { params: { id: string 
                     <FormLabel>Organization Name</FormLabel>
                     <FormControl>
                       <Input {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="description"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Description</FormLabel>
-                    <FormControl>
-                      <Textarea className="min-h-32 resize-none" {...field} />
-                    </FormControl>
-                    <FormDescription>Provide a brief description of the organization</FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="website"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Website</FormLabel>
-                    <FormControl>
-                      <Input {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <div className="grid gap-4 sm:grid-cols-2">
-                <FormField
-                  control={form.control}
-                  name="contactEmail"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Contact Email</FormLabel>
-                      <FormControl>
-                        <Input {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="contactPhone"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Contact Phone</FormLabel>
-                      <FormControl>
-                        <Input {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              <FormField
-                control={form.control}
-                name="address"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Address</FormLabel>
-                    <FormControl>
-                      <Textarea className="min-h-20 resize-none" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
