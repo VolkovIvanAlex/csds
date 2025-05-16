@@ -11,7 +11,7 @@ import PrivyProviders from "@/components/privy-provider"
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "CyberShield - Incident Management Platform",
+  title: "CSDS - Incident Management Platform",
   description: "Track and manage cybersecurity incidents",
 }
 

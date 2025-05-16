@@ -144,7 +144,7 @@ export default function RegisterPage() {
             <Shield className="h-10 w-10 text-primary" />
           </div>
           <CardTitle className="text-2xl font-bold">Create an account</CardTitle>
-          <CardDescription>Enter your information to create your CyberShield account</CardDescription>
+          <CardDescription>Enter your information to create your CSDS account</CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit}>
           <CardContent className="space-y-4">

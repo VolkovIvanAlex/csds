@@ -84,7 +84,7 @@ export function Sidebar() {
         <div className="flex h-14 items-center border-b px-4">
           <Link href="/" className="flex items-center gap-2 font-semibold">
             <Shield className="h-6 w-6 text-primary" />
-            <span>CyberShield</span>
+            <span>CSDS</span>
           </Link>
           <Button variant="ghost" size="icon" className="ml-auto md:hidden" onClick={() => setSidebarOpen(false)}>
             <X className="h-5 w-5" />

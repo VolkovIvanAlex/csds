@@ -8,7 +8,7 @@ export default function HomePage() {
       <header className="flex h-16 items-center border-b px-4 md:px-6">
         <div className="flex items-center gap-2 font-semibold">
           <Shield className="h-6 w-6 text-primary" />
-          <span>CyberShield</span>
+          <span>CSDS</span>
         </div>
         <div className="ml-auto flex gap-2">
           <Button variant="ghost" asChild>
@@ -101,7 +101,7 @@ export default function HomePage() {
         </section>
       </main>
       <footer className="flex flex-col gap-2 sm:flex-row py-6 w-full border-t px-4 md:px-6">
-        <p className="text-xs text-gray-500 dark:text-gray-400">© 2023 CyberShield. All rights reserved.</p>
+        <p className="text-xs text-gray-500 dark:text-gray-400">© 2023 CSDS. All rights reserved.</p>
         <nav className="sm:ml-auto flex gap-4 sm:gap-6">
           <Link className="text-xs hover:underline underline-offset-4" href="#">
             Terms of Service
