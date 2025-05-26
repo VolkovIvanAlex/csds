@@ -17,8 +17,8 @@ Cyber Security Dashboard System (CSDS) is a frontend application built with Next
 
 ## Installation
 ```
-git clone https://github.com/HydrogenUkraine/H2U-Marketplace.git
-cd H2U-Marketplace
+git clone https://github.com/VolkovIvanAlex/csds.git
+cd csds
 pnpm install
 pnpm run dev
 ```
