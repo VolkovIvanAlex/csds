@@ -6,6 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import { z } from "zod"
 import { ArrowLeft, Save } from "lucide-react"
+import { useAtom } from "jotai"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
@@ -15,77 +16,9 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useToast } from "@/components/ui/use-toast"
 import Link from "next/link"
-import { useAtom } from "jotai"
 import { selectedReportAtom } from "@/lib/jotai/report-actions"
+import { useReport } from "@/hooks/report.hooks"
 
-// Sample report data - in a real app, this would be fetched from an API based on the ID
-const reports = {
-  "1": {
-    id: "1",
-    title: "Phishing Campaign Targeting Finance Department",
-    type: "Phishing",
-    status: "Active",
-    severity: "High",
-    date: "2023-06-15T10:30:00",
-    description:
-      "A sophisticated phishing campaign targeted the finance department with emails appearing to come from the CFO. The emails contained malicious attachments designed to steal credentials and financial information. Several employees received these emails, and two clicked on the attachments before the security team was alerted.",
-    affectedSystems: "Email system, Finance department workstations",
-    indicators:
-      "From: cfo-name@company-spoofed.com\nSubject: Urgent: Financial Review Required\nAttachment: Q2_Financial_Review.xlsx (SHA256: a1b2c3d4e5f6...)\nC2 Server: 192.168.1.100",
-    mitigationSteps:
-      "1. Blocked sender domain at email gateway\n2. Isolated affected workstations\n3. Reset credentials for potentially compromised accounts\n4. Conducted additional phishing awareness training\n5. Implemented additional email filtering rules",
-  },
-  "2": {
-    id: "2",
-    title: "Ransomware Threat Intelligence",
-    type: "Ransomware",
-    status: "Active",
-    severity: "Critical",
-    date: "2023-06-10T14:45:00",
-    description: "Analysis of recent ransomware attacks targeting the healthcare sector.",
-    affectedSystems: "Healthcare systems, Patient records databases",
-    indicators: "IOCs for ransomware strain targeting healthcare sector",
-    mitigationSteps: "Recommended security measures for healthcare organizations",
-  },
-  "3": {
-    id: "3",
-    title: "Network Vulnerability Assessment",
-    type: "Vulnerability",
-    status: "Resolved",
-    severity: "Medium",
-    date: "2023-06-05T09:15:00",
-    description: "Comprehensive assessment of network vulnerabilities and potential security gaps.",
-    affectedSystems: "Network infrastructure, Firewall configurations",
-    indicators: "Identified vulnerabilities and potential exploit vectors",
-    mitigationSteps: "Recommended patches and configuration changes",
-  },
-  "4": {
-    id: "4",
-    title: "DDoS Attack Analysis",
-    type: "DDoS",
-    status: "Investigating",
-    severity: "High",
-    date: "2023-06-01T16:20:00",
-    description: "Analysis of recent distributed denial of service attack targeting our web infrastructure.",
-    affectedSystems: "Web servers, Load balancers, CDN",
-    indicators: "Traffic patterns, Source IPs, Attack signatures",
-    mitigationSteps: "Traffic filtering rules, Rate limiting configurations",
-  },
-  "5": {
-    id: "5",
-    title: "Insider Threat Detection",
-    type: "Insider",
-    status: "Active",
-    severity: "Medium",
-    date: "2023-05-28T11:05:00",
-    description: "Investigation into potential data exfiltration by an employee.",
-    affectedSystems: "Internal databases, File servers",
-    indicators: "Unusual access patterns, Large data transfers",
-    mitigationSteps: "Enhanced monitoring, Access restrictions",
-  },
-}
-
-// Remove the organization selection field from the form schema
 const reportFormSchema = z.object({
   title: z.string().min(5, {
     message: "Title must be at least 5 characters.",
@@ -93,20 +26,19 @@ const reportFormSchema = z.object({
   description: z.string().min(10, {
     message: "Description must be at least 10 characters.",
   }),
-  type: z.string({
-    required_error: "Please select an incident type.",
+  typeOfThreat: z.string().nonempty({
+    message: "Please select a threat type.",
   }),
-  status: z.string({
-    required_error: "Please select a status.",
+  severity: z.string().nonempty({
+    message: "Please select a severity level.",
   }),
-  severity: z.string({
-    required_error: "Please select a severity level.",
+  status: z.string().nonempty({
+    message: "Please select a status.",
   }),
-  affectedSystems: z.string().min(2, {
-    message: "Please specify affected systems.",
+  riskScore: z.coerce.number().min(0).max(100).optional(),
+  stix: z.string().min(5, {
+    message: "STIX data must be at least 5 characters.",
   }),
-  indicators: z.string().optional(),
-  mitigationSteps: z.string().optional(),
 })
 
 type ReportFormValues = z.infer<typeof reportFormSchema>
@@ -116,27 +48,26 @@ export default function EditReportPage() {
   const router = useRouter()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [report] = useAtom(selectedReportAtom)
+  const { updateReport } = useReport()
 
   const defaultValues: ReportFormValues = report
     ? {
         title: report.title,
         description: report.description,
-        type: report.type,
+        typeOfThreat: report.typeOfThreat || "",
         status: report.status,
         severity: report.severity,
-        affectedSystems: report.affectedSystems,
-        indicators: report.indicators || "",
-        mitigationSteps: report.mitigationSteps || "",
+        riskScore: report.riskScore,
+        stix: report.stix || "",
       }
     : {
         title: "",
         description: "",
-        type: "",
+        typeOfThreat: "",
         status: "",
         severity: "",
-        affectedSystems: "",
-        indicators: "",
-        mitigationSteps: "",
+        riskScore: null,
+        stix: "",
       }
 
   const form = useForm<ReportFormValues>({
@@ -145,22 +76,44 @@ export default function EditReportPage() {
     mode: "onChange",
   })
 
-  // Update the onSubmit function to use the user's organization
-  function onSubmit(data: ReportFormValues) {
+  async function onSubmit(data: ReportFormValues) {
     setIsSubmitting(true)
-
-    // Simulate API call
-    setTimeout(() => {
-      setIsSubmitting(false)
-      toast({
-        title: "Report updated",
-        description: "Your incident report has been updated successfully.",
+    try {
+      const reportId = report.id
+      const organizationId = report.organization.id
+      await updateReport({
+        organizationId,
+        reportId,
+        reportData: data,
+        options: {
+          onSuccess: () => {
+            toast({
+              title: "Report updated",
+              description: "Your incident report has been updated successfully.",
+            })
+            router.push("/dashboard/reports")
+          },
+          onError: (error) => {
+            toast({
+              variant: "destructive",
+              title: "Error",
+              description: error.message || "Failed to update report.",
+            })
+            setIsSubmitting(false)
+          },
+        },
       })
-      router.push(`/dashboard/reports`)
-    }, 1500)
+    } catch (error) {
+      console.error("Update report failed:", error)
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "An unexpected error occurred.",
+      })
+      setIsSubmitting(false)
+    }
   }
 
-  // If report not found, show error
   if (!report) {
     return (
       <div className="flex flex-col items-center justify-center h-[50vh] space-y-4">
@@ -210,17 +163,17 @@ export default function EditReportPage() {
                 )}
               />
 
-              <div className="grid gap-4 sm:grid-cols-3">
+              <div className="grid gap-4 sm:grid-cols-2">
                 <FormField
                   control={form.control}
-                  name="type"
+                  name="typeOfThreat"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Incident Type</FormLabel>
+                      <FormLabel>Threat Type</FormLabel>
                       <Select onValueChange={field.onChange} defaultValue={field.value}>
                         <FormControl>
                           <SelectTrigger>
-                            <SelectValue placeholder="Select incident type" />
+                            <SelectValue placeholder="Select threat type" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
@@ -232,30 +185,6 @@ export default function EditReportPage() {
                           <SelectItem value="Unauthorized Access">Unauthorized Access</SelectItem>
                           <SelectItem value="Insider Threat">Insider Threat</SelectItem>
                           <SelectItem value="Other">Other</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="status"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Status</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select status" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="Active">Active</SelectItem>
-                          <SelectItem value="Investigating">Investigating</SelectItem>
-                          <SelectItem value="Resolved">Resolved</SelectItem>
-                          <SelectItem value="Pending">Pending</SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage />
@@ -288,6 +217,47 @@ export default function EditReportPage() {
                 />
               </div>
 
+              <div className="grid gap-4 sm:grid-cols-2">
+                <FormField
+                  control={form.control}
+                  name="status"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Status</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select status" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="Draft">Draft</SelectItem>
+                          <SelectItem value="Submitted">Submitted</SelectItem>
+                          <SelectItem value="Under Investigation">Under Investigation</SelectItem>
+                          <SelectItem value="Resolved">Resolved</SelectItem>
+                          <SelectItem value="Closed">Closed</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="riskScore"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Risk Score (0-100)</FormLabel>
+                      <FormControl>
+                        <Input type="number" min="0" max="100" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
               <FormField
                 control={form.control}
                 name="description"
@@ -304,50 +274,23 @@ export default function EditReportPage() {
 
               <FormField
                 control={form.control}
-                name="affectedSystems"
+                name="stix"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Affected Systems</FormLabel>
+                    <FormLabel>STIX Data (JSON)</FormLabel>
                     <FormControl>
-                      <Input {...field} />
+                      <Textarea
+                        placeholder='{"type": "indicator", "spec_version": "2.1", ...}'
+                        className="min-h-20 resize-none font-mono text-sm"
+                        {...field}
+                      />
                     </FormControl>
+                    <FormDescription>STIX 2.1 formatted data in JSON</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
               />
 
-              <FormField
-                control={form.control}
-                name="indicators"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Indicators of Compromise</FormLabel>
-                    <FormControl>
-                      <Textarea className="min-h-20 resize-none" {...field} />
-                    </FormControl>
-                    <FormDescription>List any technical indicators associated with this incident</FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="mitigationSteps"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Mitigation Steps</FormLabel>
-                    <FormControl>
-                      <Textarea className="min-h-20 resize-none" {...field} />
-                    </FormControl>
-                    <FormDescription>Describe actions taken or planned to address the incident</FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              {/* Add a section in the report details dialog to show the organization info
-              but don't allow editing it */}
               <div className="grid grid-cols-2 gap-4 mt-4">
                 <div>
                   <h3 className="text-sm font-medium">Organization</h3>
