@@ -24,6 +24,7 @@ const organizationFormSchema = z.object({
   name: z.string().min(3, {
     message: "Organization name must be at least 3 characters.",
   }),
+  sphere: z.string().optional(),
 })
 
 type OrganizationFormValues = z.infer<typeof organizationFormSchema>
@@ -39,6 +40,7 @@ export default function NewOrganizationPage() {
     resolver: zodResolver(organizationFormSchema),
     defaultValues: {
       name: "",
+      sphere: "",
     },
   })
 
@@ -58,6 +60,7 @@ export default function NewOrganizationPage() {
 
     createOrganization({
       name: data.name,
+      sphere: data.sphere,
       options: {
         onSuccess: (newOrganization) => {
           toast({
@@ -119,12 +122,12 @@ export default function NewOrganizationPage() {
                 )}
               />
 
-              {/* <FormField
+              <FormField
                 control={form.control}
-                name="industry"
+                name="sphere"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Industry</FormLabel>
+                    <FormLabel>Industry / Sphere</FormLabel>
                     <Select onValueChange={field.onChange} defaultValue={field.value}>
                       <FormControl>
                         <SelectTrigger>
@@ -141,13 +144,14 @@ export default function NewOrganizationPage() {
                         <SelectItem value="Retail">Retail</SelectItem>
                         <SelectItem value="Energy">Energy</SelectItem>
                         <SelectItem value="Transportation">Transportation</SelectItem>
-                        <SelectItem value="Other">Other</SelectItem>
+                        <SelectItem value="Other">IT</SelectItem>
                       </SelectContent>
                     </Select>
+                    <FormDescription>Select the primary industry of your organization.</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
-              /> */}
+              />
 
               {/* <FormField
                 control={form.control}

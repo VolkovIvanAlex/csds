@@ -305,3 +305,92 @@ export const revokeReportAtom = atom(
     }
   }
 );
+
+export const broadcastReportAtom = atom(
+  null,
+  async (
+    get,
+    set,
+    {
+      reportId,
+      options,
+    }: {
+      reportId: string;
+      options?: ActionOptions;
+    }
+  ) => {
+    
+    try {
+      set(reportsLoadingAtom, true) // Set loading state to true
+      const response = await api.post(`/reports/${reportId}/broadcast`);
+      console.log('API Response:', response)
+      options?.onSuccess?.()
+    } catch (error: any) {
+      console.error('Error sharing report with organization:', error.message);
+      set(reportsErrorAtom, error.message || 'Failed to fetch organizations');
+      options?.onError?.(error);
+    } finally {
+      set(reportsLoadingAtom, false);
+    }
+  }
+);
+
+export const proposeResponseActionAtom = atom(
+  null,
+  async (
+    get,
+    set,
+    {
+      reportId,
+      description,
+      options,
+    }: {
+      reportId: string;
+      description: string;
+      options?: ActionOptions;
+    }
+  ) => {
+    
+    try {
+      set(reportsLoadingAtom, true) // Set loading state to true
+      const response = await api.post(`/reports/${reportId}/response-actions`, {description});
+      console.log('API Response:', response)
+      options?.onSuccess?.()
+    } catch (error: any) {
+      console.error('Error sharing report with organization:', error.message);
+      set(reportsErrorAtom, error.message || 'Failed to fetch organizations');
+      options?.onError?.(error);
+    } finally {
+      set(reportsLoadingAtom, false);
+    }
+  }
+);
+
+export const getResponseActionsAtom = atom(
+  null,
+  async (
+    get,
+    set,
+    {
+      reportId,
+      options,
+    }: {
+      reportId: string;
+      options?: ActionOptions;
+    }
+  ) => {
+    
+    try {
+      set(reportsLoadingAtom, true) // Set loading state to true
+      const response = await api.get(`/reports/${reportId}/response-actions`);
+      console.log('API Response:', response)
+      options?.onSuccess?.(response.data)
+    } catch (error: any) {
+      console.error('Error sharing report with organization:', error.message);
+      set(reportsErrorAtom, error.message || 'Failed to fetch organizations');
+      options?.onError?.(error);
+    } finally {
+      set(reportsLoadingAtom, false);
+    }
+  }
+);

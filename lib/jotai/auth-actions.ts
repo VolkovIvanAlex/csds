@@ -5,6 +5,12 @@ import { atom } from "jotai";
 import { HttpStatusCode } from 'axios';
 import { api } from "@/utils/api";
 
+export enum UserRole {
+  GovBody = "GovBody",
+  DataProvider = "DataProvider",
+  DataConsumer = "DataConsumer",
+}
+
 export const loginAtom = atom(
   null,
   async (get, set, { privyAccessToken , options }: { privyAccessToken: string; options?: ActionOptions }) => {
@@ -32,7 +38,7 @@ export const loginAtom = atom(
 
 export const registerAtom = atom(
   null,
-  async (get, set, { privyAccessToken , name, jobTitle, options }: { privyAccessToken: string; name: string; jobTitle: string; options?: ActionOptions }) => {
+  async (get, set, { privyAccessToken , name, jobTitle, role, options }: { privyAccessToken: string; name: string; jobTitle: string; role: UserRole; options?: ActionOptions }) => {
     set(authStateAtom, { ...get(authStateAtom), isLoading: true, error: null });
 
     try {
@@ -40,6 +46,7 @@ export const registerAtom = atom(
         privyAccessToken,
         name,
         jobTitle, 
+        role,
        });
 
       if (response.status === 201) {

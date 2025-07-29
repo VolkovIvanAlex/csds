@@ -28,6 +28,7 @@ import {
   Trash2,
   AlertTriangle,
   Code,
+  Send,
 } from "lucide-react"
 import Link from "next/link"
 import { useReport } from "@/hooks/report.hooks"
@@ -39,6 +40,7 @@ import { AuthGuard } from "@/components/auth-guard"
 import { useOrganization } from "@/hooks/organization.hooks"
 import { Label } from "@/components/ui/label"
 import { Spinner } from "@/components/ui/spinner"
+import { Textarea } from "@/components/ui/textarea"
 
 export default function ReportsPage() {
   const [searchQuery, setSearchQuery] = useState("")
@@ -53,7 +55,9 @@ export default function ReportsPage() {
   const { authState } = useAuth()
   const {allOrganizations, fetchAllOrganizations} = useOrganization()
 
-  const {userOrganizationReports, fetchUserOrganizationReports, setSelectedReport, removeReport, submitReport, shareReport, revokeReport} = useReport()
+  const {userOrganizationReports, fetchUserOrganizationReports, setSelectedReport, 
+    removeReport, submitReport, shareReport, revokeReport, broadcastReport, 
+    proposeResponseAction, getResponseActions} = useReport()
   const [selectedReport] = useAtom(selectedReportAtom)
   const [reportsLoading] = useAtom(reportsLoadingAtom)
   const [reportsError] = useAtom(reportsErrorAtom)
@@ -61,6 +65,18 @@ export default function ReportsPage() {
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
   const [selectedOrgId, setSelectedOrgId] = useState<string | null>(null);
   const [reportOrgId, setReportOrgId] = useState<string | null>(null);
+
+  // Add state for the new dialog and its textarea
+  const [isResponseDialogOpen, setIsResponseDialogOpen] = useState(false);
+  const [responseActionText, setResponseActionText] = useState("");
+  const [isSubmittingAction, setIsSubmittingAction] = useState(false);
+
+  // Add state for the new "View Actions" dialog
+  const [isViewActionsDialogOpen, setIsViewActionsDialogOpen] = useState(false);
+  const [responseActions, setResponseActions] = useState([]);
+  const [isLoadingActions, setIsLoadingActions] = useState(false);
+
+  console.log(authState);
 
   const availableOrganizations = allOrganizations.filter(
     (org) =>
@@ -128,6 +144,61 @@ export default function ReportsPage() {
     setSelectedReport(report)
     setIsStixDialogOpen(true)
   }
+
+  const openResponseActionDialog = (report: Report) => {
+    setSelectedReport(report);
+    setResponseActionText(""); // Clear previous text
+    setIsResponseDialogOpen(true);
+  };
+
+  const handleViewActionsClick = async (report: Report) => {
+    setSelectedReport(report);
+    setIsLoadingActions(true);
+    setIsViewActionsDialogOpen(true);
+
+    await getResponseActions({
+      reportId: report.id,
+      options: {
+        onSuccess: (data) => {
+          console.log("responseActions = ", data);
+          setResponseActions(data);
+          setIsLoadingActions(false);
+        },
+        onError: (error) => {
+          toast({ title: "Error", description: error, variant: "destructive" });
+          setIsLoadingActions(false);
+          setIsViewActionsDialogOpen(false);
+        },
+      },
+    });
+  };
+
+  const handleProposeActionSubmit = () => {
+    if (!selectedReport || responseActionText.trim().length < 10) {
+      toast({
+        title: "Validation Error",
+        description: "Response action must be at least 10 characters.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setIsSubmittingAction(true);
+    proposeResponseAction({
+      reportId: selectedReport.id,
+      description: responseActionText,
+      options: {
+        onSuccess: () => {
+          toast({ title: "Success", description: "Your response action has been submitted." });
+          setIsResponseDialogOpen(false);
+          setIsSubmittingAction(false);
+        },
+        onError: (error) => {
+          toast({ title: "Error", description: error, variant: "destructive" });
+          setIsSubmittingAction(false);
+        },
+      },
+    });
+  };
 
   const handleSubmitReport = (reportId: string) => {
     submitReport({
@@ -219,6 +290,18 @@ export default function ReportsPage() {
       },
     })
   }
+
+  const handleBroadcast = (reportId: string) => {
+    broadcastReport({ // Call the new function from your useReport hook
+      reportId,
+      options: {
+        onSuccess: (data) => {
+          toast({ title: "Broadcast successful", description: data.message });
+        },
+        onError: (error) => toast({ title: "Broadcast Failed", description: error, variant: "destructive" }),
+      },
+    });
+  };
 
   // Mock STIX data
   const mockStixData = {
@@ -569,9 +652,27 @@ export default function ReportsPage() {
                       <Code className="mr-2 h-4 w-4" />
                       View STIX Data
                     </Button>
+
+                    {authState.user?.role === "DataConsumer" && selectedReport.submitted && (
+                      <Button variant="secondary" onClick={() => openResponseActionDialog(selectedReport)}>
+                        Suggest Response Actions
+                      </Button>
+                    )}
+
+                    {authState.user?.role === "GovBody" && selectedReport.submitted && (
+                      <Button onClick={() => handleBroadcast(selectedReport.id)}>
+                        <Send className="mr-2 h-4 w-4" />
+                        Broadcast to Network
+                      </Button>
+                    )}
                     <div className="flex gap-2">
                       {canModifyReport(selectedReport) && (
                         <>
+                          {selectedReport.submitted && (
+                            <Button variant="secondary" onClick={() => handleViewActionsClick(selectedReport)}>
+                              View Response Actions
+                            </Button>
+                          )}
                           <Button variant="outline" asChild>
                             <Link href={`/dashboard/reports/${selectedReport.id}/edit`} onClick={() => handleEditReport(selectedReport)}>
                               <Edit className="mr-2 h-4 w-4" />
@@ -621,6 +722,75 @@ export default function ReportsPage() {
                   Download STIX
                 </Button>
                 <Button onClick={() => setIsStixDialogOpen(false)}>Close</Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+        )}
+
+         {/* Response Action Dialog */}
+        {selectedReport && (
+          <Dialog open={isResponseDialogOpen} onOpenChange={setIsResponseDialogOpen}>
+            <DialogContent className="sm:max-w-[600px]">
+              <DialogHeader>
+                <DialogTitle>Suggest Response Actions for "{selectedReport.title}"</DialogTitle>
+                <DialogDescription>
+                  As a Data Consumer, you can propose actions to help mitigate this threat. Your suggestion will be recorded.
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="py-4">
+                <Label htmlFor="response-action" className="sr-only">Response Action</Label>
+                <Textarea
+                  id="response-action"
+                  placeholder="e.g., 'Recommend isolating the affected subnet and blocking the identified malicious IP addresses...'"
+                  className="min-h-48 resize-y"
+                  value={responseActionText}
+                  onChange={(e) => setResponseActionText(e.target.value)}
+                />
+              </div>
+
+              <div className="flex justify-end gap-2">
+                  <Button variant="outline" onClick={() => setIsResponseDialogOpen(false)} disabled={isSubmittingAction}>
+                    Cancel
+                  </Button>
+                  <Button onClick={handleProposeActionSubmit} disabled={isSubmittingAction}>
+                    {isSubmittingAction ? "Submitting..." : "Submit Action"}
+                  </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+        )}
+
+        {/* View Response Actions Dialog */}
+        {selectedReport && (
+          <Dialog open={isViewActionsDialogOpen} onOpenChange={setIsViewActionsDialogOpen}>
+            <DialogContent className="sm:max-w-[700px]">
+              <DialogHeader>
+                <DialogTitle>Proposed Response Actions for "{selectedReport.title}"</DialogTitle>
+                <DialogDescription>
+                  Actions suggested by Data Consumers to mitigate this threat.
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="max-h-[50vh] overflow-y-auto pr-4 space-y-4 py-4">
+                {isLoadingActions ? (
+                  <div className="flex items-center justify-center h-24">
+                    <Spinner />
+                  </div>
+                ) : responseActions?.length > 0 ? (
+                  responseActions.map((action) => (
+                    <div key={action.id} className="p-4 border rounded-lg bg-muted/50">
+                      <p className="text-sm">{action.description}</p>
+                      <p className="text-xs text-muted-foreground mt-2 text-right">
+                        — Suggested by {action.proposedBy.name} on {formatDate(action.createdAt)}
+                      </p>
+                    </div>
+                  ))
+                ) : (
+                  <div className="flex items-center justify-center h-24 text-sm text-muted-foreground">
+                    No response actions have been proposed yet.
+                  </div>
+                )}
               </div>
             </DialogContent>
           </Dialog>

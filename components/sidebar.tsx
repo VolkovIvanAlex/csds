@@ -105,7 +105,7 @@ export function Sidebar() {
                   <div className="space-y-1">
                     <SidebarItem href="/dashboard/reports" icon={FileText} title="My Organizations Reports" />
                     <SidebarItem href="/dashboard/reports/new" icon={FilePlus} title="Create Report" />
-                    <SidebarItem href="/dashboard/shared" icon={Share2} title="Shared Reports" />
+                    {/* <SidebarItem href="/dashboard/shared" icon={Share2} title="Shared Reports" /> */}
                   </div>
                 </div>
 

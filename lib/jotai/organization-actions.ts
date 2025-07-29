@@ -16,7 +16,7 @@ export const allOrganizationsErrorAtom = atom<string | null>(null);
 
 export const createOrganizationAtom = atom(
   null,
-  async (get, set, { name, options }: { name: string; options?: ActionOptions }) => {
+  async (get, set, { name, sphere, options }: { name: string; sphere:string; options?: ActionOptions }) => {
     const authState = get(authStateAtom);
     if (!authState.isAuthenticated) {
       throw new Error("User must be authenticated to create an organization");
@@ -25,7 +25,7 @@ export const createOrganizationAtom = atom(
     set(authStateAtom, { ...authState, isLoading: true, error: null });
 
     try {
-      const response = await api.post("/organizations", { name });
+      const response = await api.post("/organizations", { name, sphere});
       if (response.status === 201) {
         const newOrganization = response.data;
         const updatedUser = {

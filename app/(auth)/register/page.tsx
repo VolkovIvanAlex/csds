@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Shield } from "lucide-react"
 import { useSetAtom } from "jotai"
-import { loginAtom, registerAtom } from "@/lib/jotai/auth-actions"
+import { loginAtom, registerAtom, UserRole } from "@/lib/jotai/auth-actions"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -16,6 +16,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { useToast } from "@/components/ui/use-toast"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { useToken, useLoginWithEmail} from '@privy-io/react-auth';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 interface SignUpFormState {
   data: {
@@ -23,6 +24,7 @@ interface SignUpFormState {
     name: string;
     jobTitle: string;
     code: string;
+    role: UserRole | ""
   };
   error?: string;
 }
@@ -33,6 +35,7 @@ const initialState: SignUpFormState = {
     name: '',
     jobTitle: '',
     code: '',
+    role: '',
   },
 };
 
@@ -68,6 +71,7 @@ export default function RegisterPage() {
                   privyAccessToken, 
                   name: state.data.name,
                   jobTitle: state.data.jobTitle,
+                  role: state.data.role as UserRole,
                   options: {
                     onSuccess: (user) => {
                       toast({
@@ -118,6 +122,10 @@ export default function RegisterPage() {
     if (!state.data.jobTitle.trim()) {
       setState({ ...state, error: 'Job title is required' });
       return false;
+    }
+    if (!state.data.role) {
+      setState({ ...state, error: 'Please select your role' })
+      return false
     }
     return true;
   };
@@ -181,6 +189,26 @@ export default function RegisterPage() {
                 />
               </div>
             </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="role">Your Role</Label>
+              <Select
+                value={state.data.role}
+                onValueChange={(value) =>
+                  setState({ ...state, data: { ...state.data, role: value as UserRole }, error: undefined })
+                }
+              >
+                <SelectTrigger id="role">
+                  <SelectValue placeholder="Select your role" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={UserRole.DataProvider}>Data Provider (e.g., Bank, Energy Co.)</SelectItem>
+                  <SelectItem value={UserRole.DataConsumer}>Data Consumer (e.g., IT Specialist)</SelectItem>
+                  <SelectItem value={UserRole.GovBody}>Government Body</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input id="email" name="email" type="email" placeholder="name@example.com" required 

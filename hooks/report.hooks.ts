@@ -1,7 +1,8 @@
 import { useAtom } from 'jotai';
-import { createReportAtom, updateReportAtom, removeReportAtom, selectedReportAtom, userOrganizationReportsAtom, fetchUserOrganizationReportsAtom, shareReportAtom, revokeReportAtom, submitReportAtom } from '@/lib/jotai/report-actions';
+import { createReportAtom, updateReportAtom, removeReportAtom, selectedReportAtom, userOrganizationReportsAtom, fetchUserOrganizationReportsAtom, shareReportAtom, revokeReportAtom, submitReportAtom, broadcastReportAtom, reportsLoadingAtom, proposeResponseActionAtom, getResponseActionsAtom } from '@/lib/jotai/report-actions';
 
 export const useReport = () => {
+  const [, reportsLoading] = useAtom(reportsLoadingAtom);
   const [, createReport] = useAtom(createReportAtom);
   const [, updateReport] = useAtom(updateReportAtom);
   const [, removeReport] = useAtom(removeReportAtom);
@@ -10,8 +11,12 @@ export const useReport = () => {
   const [, submitReport] = useAtom(submitReportAtom);
   const [, shareReport] = useAtom(shareReportAtom);
   const [, revokeReport] = useAtom(revokeReportAtom);
-  
+  const [, broadcastReport] = useAtom(broadcastReportAtom);
+  const [, proposeResponseAction] = useAtom(proposeResponseActionAtom);
+  const [, getResponseActions] = useAtom(getResponseActionsAtom);
+    
   return {
+    reportsLoading,
     createReport,
     updateReport,
     removeReport,
@@ -20,6 +25,9 @@ export const useReport = () => {
     setSelectedReport,
     submitReport,
     shareReport,
-    revokeReport
+    revokeReport,
+    broadcastReport,
+    proposeResponseAction,
+    getResponseActions,
   };
 };
