@@ -2,12 +2,12 @@
 
 import type React from "react"
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import { z } from "zod"
-import { Save, ArrowLeft, Upload, X, Paperclip } from "lucide-react"
+import { Save, ArrowLeft, Upload, X, Paperclip, AlertCircle } from "lucide-react"
 import { useAtom } from "jotai"
 import Link from "next/link"
 
@@ -22,6 +22,7 @@ import { calculateHash } from "@/lib/utils"
 import { authStateAtom } from "@/lib/jotai/atoms/authState"
 import { useReport } from "@/hooks/report.hooks"
 import { useOrganization } from "@/hooks/organization.hooks"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 // Remove the organizationId field from the form schema
 const reportFormSchema = z.object({
@@ -43,11 +44,27 @@ const reportFormSchema = z.object({
   }),
   riskScore: z.coerce.number().min(0).max(100).optional(),
   stix: z.string().min(5, {
-    message: "Title must be at least 1 characters.",
+    message: "Stix must be at least 5 characters.",
   }),
 })
 
 type ReportFormValues = z.infer<typeof reportFormSchema>
+
+// Mock STIX data
+  const mockStixData = {
+    type: "indicator",
+    spec_version: "2.1",
+    id: "indicator--8e2e2d2b-17d4-4cbf-938f-98ee46b3cd3f",
+    created: "2023-06-15T10:30:00.000Z",
+    modified: "2023-06-15T10:30:00.000Z",
+    name: "Phishing Campaign Indicator",
+    description: "Email from spoofed domain with malicious attachment",
+    indicator_types: ["malicious-activity"],
+    pattern:
+      "[email-message:sender_ref.value = 'cfo-name@company-spoofed.com' AND email-message:subject = 'Urgent: Financial Review Required']",
+    pattern_type: "stix",
+    valid_from: "2023-06-15T00:00:00Z",
+}
 
 export default function NewReportPage() {
   const { toast } = useToast()
@@ -57,13 +74,15 @@ export default function NewReportPage() {
   const [attachments, setAttachments] = useState<string[]>([])
   const { createReport } = useReport()
   const { userOrganizations, fetchUserOrganizations } = useOrganization()
+  const [formError, setFormError] = useState<string | null>(null)
+  const errorRef = useRef<HTMLDivElement>(null)
   
   const defaultValues: Partial<ReportFormValues> = {
     organizationId: userOrganizations.length === 1 ? userOrganizations[0].id : "",
     title: "",
     description: "",
     typeOfThreat: "",
-    severity: "",
+    severity: "Medium",
     status: "Draft",
     riskScore: 50,
     stix: "",
@@ -80,7 +99,12 @@ export default function NewReportPage() {
           fetchUserOrganizations();
       }
   }, [authState.user?.id, fetchUserOrganizations]);
-  
+
+  useEffect(() => {
+    if (formError) {
+      errorRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [formError]);
 
   if (!userOrganizations || userOrganizations.length === 0) {
     return (
@@ -91,10 +115,18 @@ export default function NewReportPage() {
     )
   }
 
-  
-
   // Update the onSubmit function to use the user's organization
   async function onSubmit(data: ReportFormValues) {
+    setFormError(null);
+
+    let stixObject;
+    try {
+      stixObject = JSON.parse(data.stix);
+    } catch (error) {
+      setFormError("The STIX data is not valid JSON. Please correct it and try again.");
+      return; // Stop the submission
+    }
+    
     setIsSubmitting(true)
     try {
       await createReport({
@@ -108,7 +140,7 @@ export default function NewReportPage() {
           organizationId: data.organizationId,
           //attachments: attachments,
           riskScore: data.riskScore,
-          stix: data.stix,
+          stix: stixObject,
         },
         options: {
           onSuccess: () => {
@@ -119,10 +151,12 @@ export default function NewReportPage() {
             router.push("/dashboard/reports")
           },
           onError: (error) => {
+            const errorMessage = error || "Failed to create report.";
+            setFormError(errorMessage);
             toast({
               variant: "destructive",
-              title: "Error",
-              description: error.message || "Failed to create report.",
+              title: "Error Creating Report",
+              description: errorMessage,
             })
             setIsSubmitting(false)
           },
@@ -130,10 +164,12 @@ export default function NewReportPage() {
       })
     } catch (error) {
       console.error("Create report failed:", error)
+      const errorMessage = "An unexpected error occurred. Please try again.";
+      setFormError(errorMessage);
       toast({
         variant: "destructive",
         title: "Error",
-        description: "An unexpected error occurred.",
+        description: errorMessage,
       })
       setIsSubmitting(false)
     }
@@ -148,6 +184,11 @@ export default function NewReportPage() {
 
   const removeAttachment = (index: number) => {
     setAttachments(attachments.filter((_, i) => i !== index))
+  }
+
+  // Handler to set the STIX example in the form
+  const handleUseStixExample = () => {
+    form.setValue("stix", JSON.stringify(mockStixData, null, 2));
   }
 
   return (
@@ -173,7 +214,18 @@ export default function NewReportPage() {
         </CardHeader>
         <CardContent>
           <Form {...form}>
-            <form id="report-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            <form id="report-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-6" onChange={() => setFormError(null)}>
+               
+               <div ref={errorRef}>
+                {formError && (
+                  <Alert variant="destructive">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertTitle>Submission Failed</AlertTitle>
+                    <AlertDescription>{formError}</AlertDescription>
+                  </Alert>
+                )}
+              </div>
+
                {/* Organization Select Field */}
                <FormField
                 control={form.control}
@@ -371,11 +423,17 @@ export default function NewReportPage() {
                 name="stix"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>STIX Data (JSON)</FormLabel>
+                    <div className="flex justify-between items-center">
+                      <FormLabel>STIX Data (JSON)</FormLabel>
+                      {/* ADDED: "Use Example" Button */}
+                      <Button type="button" variant="link" className="h-auto p-0" onClick={handleUseStixExample}>
+                        Use Example
+                      </Button>
+                    </div>
                     <FormControl>
                       <Textarea
                         placeholder='{"type": "indicator", "spec_version": "2.1", ...}'
-                        className="min-h-20 resize-none font-mono text-sm"
+                        className="min-h-[240px] resize-y font-mono text-sm"
                         {...field}
                       />
                     </FormControl>

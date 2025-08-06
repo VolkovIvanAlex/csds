@@ -25,7 +25,6 @@ export const createReportAtom = atom(
       options?: ActionOptions;
     }
   ) => {
-    console.log("reportData = ", reportData);
     const authState = get(authStateAtom) as AuthState;
     if (!authState.isAuthenticated) {
       throw new Error("User must be authenticated to create a report");
@@ -46,12 +45,22 @@ export const createReportAtom = atom(
         set(authStateAtom, { ...authState, user: updatedUser, isLoading: false, error: null });
         options?.onSuccess?.(newReport);
       } else {
-        throw new Error("Failed to create report");
+        throw new Error("Failed to create report with status: " + response.status);
       }
     } catch (error: any) {
-      const message = error?.response?.data?.message || "Error creating report";
-      set(authStateAtom, { ...authState, isLoading: false, error: message });
-      options?.onError?.(error);
+      // Extract the specific validation message from the backend response
+      let detailedMessage = "An unexpected error occurred.";
+      if (error.response?.data?.message) {
+        const backendMessage = error.response.data.message;
+        // NestJS validation pipes send an array, so we join it into a readable string
+        detailedMessage = Array.isArray(backendMessage)
+          ? backendMessage.join(', ')
+          : backendMessage;
+      }
+      
+      set(authStateAtom, { ...authState, isLoading: false, error: detailedMessage });
+      // Pass the clean, detailed message string to the component's onError handler
+      options?.onError?.(detailedMessage);
     }
   }
 );
@@ -101,9 +110,19 @@ export const updateReportAtom = atom(
         throw new Error("Failed to update report");
       }
     } catch (error: any) {
-      const message = error?.response?.data?.message || "Error updating report";
-      set(authStateAtom, { ...authState, isLoading: false, error: message });
-      options?.onError?.(error);
+      // Extract the specific validation message from the backend response
+      let detailedMessage = "An unexpected error occurred.";
+      if (error.response?.data?.message) {
+        const backendMessage = error.response.data.message;
+        // NestJS validation pipes send an array, so we join it into a readable string
+        detailedMessage = Array.isArray(backendMessage)
+          ? backendMessage.join(', ')
+          : backendMessage;
+      }
+      
+      set(authStateAtom, { ...authState, isLoading: false, error: detailedMessage });
+      // Pass the clean, detailed message string to the component's onError handler
+      options?.onError?.(detailedMessage);
     }
   }
 );
@@ -164,7 +183,6 @@ export const fetchUserOrganizationReportsAtom = atom(
       try {
         console.log('Fetching user organizations from frontend...');
         const response = await api.get('/reports/user');
-        console.log('API Response:', response.data);
         set(userOrganizationReportsAtom, response.data);
       } catch (error: any) {
         console.error('Error fetching organizations:', error.message);
@@ -196,10 +214,8 @@ export const submitReportAtom = atom(
     try {
       set(reportsLoadingAtom, true) // Set loading state to true
       const response = await api.post(`/reports/${reportId}/submit`)
-      console.log('API Response:', response)
       if (response.status === 201) {
         const updatedReport = response.data
-        console.log('Updated report:', updatedReport)
         // Update userOrganizationReports
         const currentReports = get(userOrganizationReportsAtom)
         const updatedReports = currentReports.map((report) =>
@@ -243,9 +259,7 @@ export const shareReportAtom = atom(
     try {
       set(reportsLoadingAtom, true) // Set loading state to true
       const response = await api.post(`/reports/${reportId}/${sourceOrgId}/share/${targetOrgId}`);
-      console.log('API Response:', response)
       const updatedReport = response.data
-      console.log('Updated report:', updatedReport)
       // Update userOrganizationReports
       const currentReports = get(userOrganizationReportsAtom)
       const updatedReports = currentReports.map((report) =>
@@ -285,9 +299,7 @@ export const revokeReportAtom = atom(
     try {
       set(reportsLoadingAtom, true) // Set loading state to true
       const response = await api.post(`/reports/${reportId}/${sourceOrgId}/revoke/${targetOrgId}`);
-      console.log('API Response:', response)
       const updatedReport = response.data
-      console.log('Updated report:', updatedReport)
       // Update userOrganizationReports
       const currentReports = get(userOrganizationReportsAtom)
       const updatedReports = currentReports.map((report) =>
@@ -323,11 +335,38 @@ export const broadcastReportAtom = atom(
     try {
       set(reportsLoadingAtom, true) // Set loading state to true
       const response = await api.post(`/reports/${reportId}/broadcast`);
-      console.log('API Response:', response)
-      options?.onSuccess?.()
+      options?.onSuccess?.(response.data)
     } catch (error: any) {
-      console.error('Error sharing report with organization:', error.message);
-      set(reportsErrorAtom, error.message || 'Failed to fetch organizations');
+      console.error('Error broadcasting report:', error.message);
+      set(reportsErrorAtom, error.message || 'Error broadcasting report');
+      options?.onError?.(error);
+    } finally {
+      set(reportsLoadingAtom, false);
+    }
+  }
+);
+
+export const removeFromNetworkAtom = atom(
+  null,
+  async (
+    get,
+    set,
+    {
+      reportId,
+      options,
+    }: {
+      reportId: string;
+      options?: ActionOptions;
+    }
+  ) => {
+    
+    try {
+      set(reportsLoadingAtom, true) // Set loading state to true
+      const response = await api.post(`/reports/${reportId}/remove-from-network`);
+      options?.onSuccess?.(response.data)
+    } catch (error: any) {
+      console.error('Error removing from network:', error.message);
+      set(reportsErrorAtom, error.message || 'Error removing from network.');
       options?.onError?.(error);
     } finally {
       set(reportsLoadingAtom, false);
@@ -354,7 +393,6 @@ export const proposeResponseActionAtom = atom(
     try {
       set(reportsLoadingAtom, true) // Set loading state to true
       const response = await api.post(`/reports/${reportId}/response-actions`, {description});
-      console.log('API Response:', response)
       options?.onSuccess?.()
     } catch (error: any) {
       console.error('Error sharing report with organization:', error.message);
@@ -383,7 +421,6 @@ export const getResponseActionsAtom = atom(
     try {
       set(reportsLoadingAtom, true) // Set loading state to true
       const response = await api.get(`/reports/${reportId}/response-actions`);
-      console.log('API Response:', response)
       options?.onSuccess?.(response.data)
     } catch (error: any) {
       console.error('Error sharing report with organization:', error.message);

@@ -52,7 +52,6 @@ export const fetchAllUsersAtom = atom(
     try {
       const response = await api.get('/users');
       set(allUsersAtom, response.data);
-      console.log('All users fetched:', response.data);
     } catch (error: any) {
       const message = error?.response?.data?.message || 'Error fetching users';
       set(usersErrorAtom, message);

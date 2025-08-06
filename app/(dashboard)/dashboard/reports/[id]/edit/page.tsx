@@ -1,11 +1,11 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import { z } from "zod"
-import { ArrowLeft, Save } from "lucide-react"
+import { AlertCircle, ArrowLeft, Save } from "lucide-react"
 import { useAtom } from "jotai"
 
 import { Button } from "@/components/ui/button"
@@ -18,6 +18,7 @@ import { useToast } from "@/components/ui/use-toast"
 import Link from "next/link"
 import { selectedReportAtom } from "@/lib/jotai/report-actions"
 import { useReport } from "@/hooks/report.hooks"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 const reportFormSchema = z.object({
   title: z.string().min(5, {
@@ -49,6 +50,8 @@ export default function EditReportPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [report] = useAtom(selectedReportAtom)
   const { updateReport } = useReport()
+  const [formError, setFormError] = useState<string | null>(null)
+  const errorRef = useRef<HTMLDivElement>(null)
 
   const defaultValues: ReportFormValues = report
     ? {
@@ -58,7 +61,7 @@ export default function EditReportPage() {
         status: report.status,
         severity: report.severity,
         riskScore: report.riskScore,
-        stix: report.stix || "",
+        stix: typeof report.stix === 'object' ? JSON.stringify(report.stix, null, 2) : report.stix || "",
       }
     : {
         title: "",
@@ -76,7 +79,21 @@ export default function EditReportPage() {
     mode: "onChange",
   })
 
+  useEffect(() => {
+      if (formError) {
+        errorRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+  }, [formError]);
+
   async function onSubmit(data: ReportFormValues) {
+    let stixObject;
+    try {
+      stixObject = JSON.parse(data.stix);
+    } catch (error) {
+      setFormError("The STIX data is not valid JSON. Please correct it and try again.");
+      return;
+    }
+
     setIsSubmitting(true)
     try {
       const reportId = report.id
@@ -84,7 +101,10 @@ export default function EditReportPage() {
       await updateReport({
         organizationId,
         reportId,
-        reportData: data,
+        reportData: {
+            ...data,
+            stix: stixObject,
+        },
         options: {
           onSuccess: () => {
             toast({
@@ -94,6 +114,8 @@ export default function EditReportPage() {
             router.push("/dashboard/reports")
           },
           onError: (error) => {
+            const errorMessage = error || "Failed to update report.";
+            setFormError(errorMessage);
             toast({
               variant: "destructive",
               title: "Error",
@@ -148,7 +170,18 @@ export default function EditReportPage() {
         </CardHeader>
         <CardContent>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6" onChange={() => setFormError(null)}>
+
+              <div ref={errorRef}>
+                {formError && (
+                  <Alert variant="destructive">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertTitle>Submission Failed</AlertTitle>
+                    <AlertDescription>{formError}</AlertDescription>
+                  </Alert>
+                )}
+              </div>
+
               <FormField
                 control={form.control}
                 name="title"
@@ -281,7 +314,7 @@ export default function EditReportPage() {
                     <FormControl>
                       <Textarea
                         placeholder='{"type": "indicator", "spec_version": "2.1", ...}'
-                        className="min-h-20 resize-none font-mono text-sm"
+                        className="min-h-40 resize-y font-mono text-sm"
                         {...field}
                       />
                     </FormControl>

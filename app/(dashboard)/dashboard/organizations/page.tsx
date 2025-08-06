@@ -133,7 +133,6 @@ export default function OrganizationsPage() {
   const filteredOrgs = userOrganizations?.filter((org) => org.name.toLowerCase().includes(searchQuery.toLowerCase()))
 
   const openOrgDetails = (org) => {
-    console.log(org);
     setSelectedOrganization(org)
     setIsDialogOpen(true)
     // Check if the current user is the founder of this organization

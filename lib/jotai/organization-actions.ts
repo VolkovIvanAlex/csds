@@ -156,7 +156,6 @@ export const fetchUserOrganizationsAtom = atom(
       try {
         console.log('Fetching user organizations from frontend...');
         const response = await api.get('/users/organizations');
-        console.log('API Response:', response.data);
         set(userOrganizationsAtom, response.data);
       } catch (error: any) {
         console.error('Error fetching organizations:', error.message);
@@ -176,7 +175,6 @@ export const fetchAllOrganizationsAtom = atom(
     try {
       console.log("Fetching all organizations...");
       const response = await api.get("/organizations"); // Ensure this route hits the correct controller
-      console.log("All organizations:", response.data);
       set(allOrganizationsAtom, response.data);
     } catch (error: any) {
       const message = error?.response?.data?.message || "Failed to fetch all organizations";

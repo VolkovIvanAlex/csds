@@ -35,7 +35,7 @@ const initialState: SignUpFormState = {
     name: '',
     jobTitle: '',
     code: '',
-    role: '',
+    role: UserRole.DataProvider,
   },
 };
 
@@ -135,7 +135,6 @@ export default function RegisterPage() {
     if (!validateForm()) return; // Stop if validation fails
     setIsLoading(true)
     setError(null)
-    console.log("here");
     try {
       await loginWithCode({ code: state.data.code });
     } catch (error) {

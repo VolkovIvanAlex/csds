@@ -28,8 +28,6 @@ export function Header() {
   const { logout: privyLogout } = useLogout();
   const logout = useSetAtom(logoutAtom);
 
-  console.log(authState);
-
   const handleLogout = async () => {
     logout()
     await privyLogout();
@@ -54,6 +52,19 @@ export function Header() {
             />
           </div>
         </form>
+      </div>
+
+      <div className="flex-shrink-0 hidden md:block">
+        <a href="https://www.fiware.org/" target="_blank" rel="noopener noreferrer">
+          <img
+            src="https://www.fiware.org/style/imgs/Badges/Badge_FIWAREMarketplace_PoweredByFIWARE.svg"
+            alt="Powered by FIWARE"
+            className="h-7"
+            onError={(e) => {
+              e.currentTarget.style.display = 'none'; // Hide if the image fails to load
+            }}
+          />
+        </a>
       </div>
 
       <div className="flex items-center gap-2">

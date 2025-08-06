@@ -103,7 +103,7 @@ export function Sidebar() {
                 <div className="mt-6 px-3 py-2">
                   <h3 className="mb-2 text-xs font-semibold text-muted-foreground">REPORTS</h3>
                   <div className="space-y-1">
-                    <SidebarItem href="/dashboard/reports" icon={FileText} title="My Organizations Reports" />
+                    <SidebarItem href="/dashboard/reports" icon={FileText} title="My Reports" />
                     <SidebarItem href="/dashboard/reports/new" icon={FilePlus} title="Create Report" />
                     {/* <SidebarItem href="/dashboard/shared" icon={Share2} title="Shared Reports" /> */}
                   </div>

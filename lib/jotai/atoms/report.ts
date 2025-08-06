@@ -11,6 +11,7 @@ export interface Report {
     severity: string;
     submittedAt?: string | null;
     submitted: boolean;
+    broadcasted: boolean;
     stix: string;
     blockchainHash?: string | null;
     riskScore?: number | null;

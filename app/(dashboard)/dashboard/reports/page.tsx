@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -29,7 +29,11 @@ import {
   AlertTriangle,
   Code,
   Send,
+  AlertCircle,
+  Calendar as CalendarIcon, X
 } from "lucide-react"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Calendar } from "@/components/ui/calendar" // Use the styled Calendar component
 import Link from "next/link"
 import { useReport } from "@/hooks/report.hooks"
 import { useAuth } from "@/hooks/auth.hooks"
@@ -41,11 +45,16 @@ import { useOrganization } from "@/hooks/organization.hooks"
 import { Label } from "@/components/ui/label"
 import { Spinner } from "@/components/ui/spinner"
 import { Textarea } from "@/components/ui/textarea"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { DateRange } from "react-day-picker"
+import { format } from "date-fns"
+import { cn } from "@/lib/utils"
 
 export default function ReportsPage() {
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [severityFilter, setSeverityFilter] = useState("all")
+  const [dateRange, setDateRange] = useState<DateRange | undefined>()
 
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [isStixDialogOpen, setIsStixDialogOpen] = useState(false)
@@ -56,7 +65,7 @@ export default function ReportsPage() {
   const {allOrganizations, fetchAllOrganizations} = useOrganization()
 
   const {userOrganizationReports, fetchUserOrganizationReports, setSelectedReport, 
-    removeReport, submitReport, shareReport, revokeReport, broadcastReport, 
+    removeReport, submitReport, shareReport, revokeReport, broadcastReport, removeFromNetwork, 
     proposeResponseAction, getResponseActions} = useReport()
   const [selectedReport] = useAtom(selectedReportAtom)
   const [reportsLoading] = useAtom(reportsLoadingAtom)
@@ -75,8 +84,8 @@ export default function ReportsPage() {
   const [isViewActionsDialogOpen, setIsViewActionsDialogOpen] = useState(false);
   const [responseActions, setResponseActions] = useState([]);
   const [isLoadingActions, setIsLoadingActions] = useState(false);
-
-  console.log(authState);
+  const [formError, setFormError] = useState<string | null>(null)
+  const errorRef = useRef<HTMLDivElement>(null)
 
   const availableOrganizations = allOrganizations.filter(
     (org) =>
@@ -96,30 +105,35 @@ export default function ReportsPage() {
   
   const { toast } = useToast()
 
-  useEffect(() => {
-      if (authState.user?.id) {
-        fetchUserOrganizationReports();
-      }
-  }, [authState.user?.id, fetchUserOrganizationReports]);
-
+  // Data Fetching
   useEffect(() => {
     if (authState.user?.id) {
-      fetchAllOrganizations();
+      fetchUserOrganizationReports()
+      fetchAllOrganizations()
     }
-}, [authState.user?.id, fetchAllOrganizations]);
+  }, [authState.user?.id, fetchUserOrganizationReports, fetchAllOrganizations])
 
   // Filter reports based on search query and filters
-  const filteredReports = userOrganizationReports.filter((report) => {
-    const matchesSearch =
-      report.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      report.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      report.typeOfThreat.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredReports = useMemo(() => {
+    return userOrganizationReports.filter((report) => {
+      const reportDate = report.submittedAt ? new Date(report.submittedAt) : null
 
-    const matchesStatus = statusFilter === "all" || report.status.toLowerCase() === statusFilter.toLowerCase()
-    const matchesSeverity = severityFilter === "all" || report.severity.toLowerCase() === severityFilter.toLowerCase()
+      const matchesSearch =
+        report.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        report.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        report.typeOfThreat.toLowerCase().includes(searchQuery.toLowerCase())
 
-    return matchesSearch && matchesStatus && matchesSeverity
-  })
+      const matchesStatus = statusFilter === "all" || report.status.toLowerCase() === statusFilter.toLowerCase()
+      const matchesSeverity = severityFilter === "all" || report.severity.toLowerCase() === severityFilter.toLowerCase()
+      
+      const matchesDate = !dateRange || !reportDate || (
+        (!dateRange.from || reportDate >= dateRange.from) &&
+        (!dateRange.to || reportDate <= new Date(dateRange.to.setHours(23, 59, 59, 999)))
+      )
+
+      return matchesSearch && matchesStatus && matchesSeverity && matchesDate
+    })
+  }, [userOrganizationReports, searchQuery, statusFilter, severityFilter, dateRange])
 
   // Group reports by organization
   const reportsByOrganization = filteredReports.reduce((acc, report) => {
@@ -133,6 +147,13 @@ export default function ReportsPage() {
     acc[orgId].reports.push(report)
     return acc
   }, {})
+
+  const handleResetFilters = () => {
+    setSearchQuery("");
+    setStatusFilter("all");
+    setSeverityFilter("all");
+    setDateRange(undefined);
+  };
 
   const openReportDetails = (report) => {
     console.log(report);
@@ -160,7 +181,6 @@ export default function ReportsPage() {
       reportId: report.id,
       options: {
         onSuccess: (data) => {
-          console.log("responseActions = ", data);
           setResponseActions(data);
           setIsLoadingActions(false);
         },
@@ -174,7 +194,9 @@ export default function ReportsPage() {
   };
 
   const handleProposeActionSubmit = () => {
+    setFormError(null);
     if (!selectedReport || responseActionText.trim().length < 10) {
+      setFormError("Response action must be at least 10 characters.");
       toast({
         title: "Validation Error",
         description: "Response action must be at least 10 characters.",
@@ -191,9 +213,11 @@ export default function ReportsPage() {
           toast({ title: "Success", description: "Your response action has been submitted." });
           setIsResponseDialogOpen(false);
           setIsSubmittingAction(false);
+          setFormError(null);
         },
         onError: (error) => {
           toast({ title: "Error", description: error, variant: "destructive" });
+          setFormError(error)
           setIsSubmittingAction(false);
         },
       },
@@ -217,7 +241,6 @@ export default function ReportsPage() {
   };
 
   const handleShareClick = async (report: Report) => {
-    console.log(report);
     setSelectedReport(report);
     setSelectedReportId(report.id);
     setReportOrgId(report.organization.id);
@@ -292,47 +315,32 @@ export default function ReportsPage() {
   }
 
   const handleBroadcast = (reportId: string) => {
-    broadcastReport({ // Call the new function from your useReport hook
+    broadcastReport({
       reportId,
       options: {
         onSuccess: (data) => {
           toast({ title: "Broadcast successful", description: data.message });
+          fetchUserOrganizationReports(); // Re-fetch reports to update UI state
+          setIsDialogOpen(false);
         },
         onError: (error) => toast({ title: "Broadcast Failed", description: error, variant: "destructive" }),
       },
     });
   };
 
-  // Mock STIX data
-  const mockStixData = {
-    type: "indicator",
-    spec_version: "2.1",
-    id: "indicator--8e2e2d2b-17d4-4cbf-938f-98ee46b3cd3f",
-    created: "2023-06-15T10:30:00.000Z",
-    modified: "2023-06-15T10:30:00.000Z",
-    name: "Phishing Campaign Indicator",
-    description: "Email from spoofed domain with malicious attachment",
-    indicator_types: ["malicious-activity"],
-    pattern:
-      "[email-message:sender_ref.value = 'cfo-name@company-spoofed.com' AND email-message:subject = 'Urgent: Financial Review Required']",
-    pattern_type: "stix",
-    valid_from: "2023-06-15T00:00:00Z",
-  }
-
-  // Mock STIX data (replace with actual STIX data if available)
-  const getStixData = (report) => ({
-    type: "indicator",
-    spec_version: "2.1",
-    id: `indicator--${report.id}`,
-    created: report.submittedAt || new Date().toISOString(),
-    modified: report.submittedAt || new Date().toISOString(),
-    name: report.title,
-    description: report.description,
-    indicator_types: [report.typeOfThreat.toLowerCase()],
-    pattern: `[threat-report:title = '${report.title}']`,
-    pattern_type: "stix",
-    valid_from: report.submittedAt || new Date().toISOString(),
-  })
+  const handleRemoveFromNetwork = (reportId: string) => {
+    removeFromNetwork({
+      reportId,
+      options: {
+        onSuccess: (data) => {
+          toast({ title: "Remove from network successful", description: data.message });
+          fetchUserOrganizationReports(); // Re-fetch reports to update UI state
+          setIsDialogOpen(false); // Close the dialog
+        },
+        onError: (error) => toast({ title: "Remove from network Failed", description: error, variant: "destructive" }),
+      },
+    });
+  };
 
   const formatDate = (dateString) => {
     const date = new Date(dateString)
@@ -438,6 +446,41 @@ export default function ReportsPage() {
                     <SelectItem value="low">Low</SelectItem>
                   </SelectContent>
                 </Select>
+
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant={"outline"}
+                      className={cn("w-full sm:w-[250px] justify-start text-left font-normal", !dateRange && "text-muted-foreground")}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {dateRange?.from ? (
+                        dateRange.to ? (
+                          <>
+                            {format(dateRange.from, "LLL dd, y")} - {format(dateRange.to, "LLL dd, y")}
+                          </>
+                        ) : (
+                          format(dateRange.from, "LLL dd, y")
+                        )
+                      ) : (
+                        <span>Filter by date</span>
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="end">
+                    <Calendar
+                      mode="range"
+                      selected={dateRange}
+                      onSelect={setDateRange}
+                      numberOfMonths={2}
+                    />
+                  </PopoverContent>
+                </Popover>
+                {(searchQuery || statusFilter !== 'all' || severityFilter !== 'all' || dateRange) && (
+                  <Button variant="ghost" size="icon" onClick={handleResetFilters}>
+                    <X className="h-4 w-4" />
+                  </Button>
+                )}
 
                 <Button variant="outline" size="icon">
                   <Download className="h-4 w-4" />
@@ -653,18 +696,28 @@ export default function ReportsPage() {
                       View STIX Data
                     </Button>
 
-                    {authState.user?.role === "DataConsumer" && selectedReport.submitted && (
+=                    {!canModifyReport(selectedReport) && selectedReport.submitted && (
                       <Button variant="secondary" onClick={() => openResponseActionDialog(selectedReport)}>
                         Suggest Response Actions
                       </Button>
                     )}
 
                     {authState.user?.role === "GovBody" && selectedReport.submitted && (
-                      <Button onClick={() => handleBroadcast(selectedReport.id)}>
-                        <Send className="mr-2 h-4 w-4" />
-                        Broadcast to Network
-                      </Button>
+                      <>
+                        {selectedReport.broadcasted ? (
+                          <Button variant="destructive" onClick={() => handleRemoveFromNetwork(selectedReport.id)}>
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Remove from Network
+                          </Button>
+                        ) : (
+                          <Button onClick={() => handleBroadcast(selectedReport.id)}>
+                            <Send className="mr-2 h-4 w-4" />
+                            Broadcast to Network
+                          </Button>
+                        )}
+                      </>
                     )}
+
                     <div className="flex gap-2">
                       {canModifyReport(selectedReport) && (
                         <>
@@ -713,7 +766,7 @@ export default function ReportsPage() {
               </DialogHeader>
 
               <div className="rounded-md bg-muted p-4 overflow-auto max-h-[400px]">
-                <pre className="text-xs font-mono whitespace-pre-wrap">{JSON.stringify(mockStixData, null, 2)}</pre>
+                <pre className="text-xs font-mono whitespace-pre-wrap">{JSON.stringify(selectedReport.stix, null, 2)}</pre>
               </div>
 
               <div className="flex justify-between">
@@ -745,8 +798,21 @@ export default function ReportsPage() {
                   placeholder="e.g., 'Recommend isolating the affected subnet and blocking the identified malicious IP addresses...'"
                   className="min-h-48 resize-y"
                   value={responseActionText}
-                  onChange={(e) => setResponseActionText(e.target.value)}
+                  onChange={(e) => {
+                    setResponseActionText(e.target.value)
+                    setFormError(null)
+                  }}
                 />
+              </div>
+
+              <div ref={errorRef}>
+                {formError && (
+                  <Alert variant="destructive">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertTitle>Submission Failed</AlertTitle>
+                    <AlertDescription>{formError}</AlertDescription>
+                  </Alert>
+                )}
               </div>
 
               <div className="flex justify-end gap-2">
@@ -764,7 +830,7 @@ export default function ReportsPage() {
         {/* View Response Actions Dialog */}
         {selectedReport && (
           <Dialog open={isViewActionsDialogOpen} onOpenChange={setIsViewActionsDialogOpen}>
-            <DialogContent className="sm:max-w-[700px]">
+            <DialogContent className="sm:max-w-[900px]">
               <DialogHeader>
                 <DialogTitle>Proposed Response Actions for "{selectedReport.title}"</DialogTitle>
                 <DialogDescription>
@@ -778,7 +844,7 @@ export default function ReportsPage() {
                     <Spinner />
                   </div>
                 ) : responseActions?.length > 0 ? (
-                  responseActions.map((action) => (
+                  responseActions.slice(0, 3).map((action) => (
                     <div key={action.id} className="p-4 border rounded-lg bg-muted/50">
                       <p className="text-sm">{action.description}</p>
                       <p className="text-xs text-muted-foreground mt-2 text-right">
@@ -791,6 +857,15 @@ export default function ReportsPage() {
                     No response actions have been proposed yet.
                   </div>
                 )}
+              </div>
+
+              
+              <div className="flex justify-center pt-2 border-t">
+                <Button variant="link" asChild>
+                  <Link href={`/dashboard/reports/${selectedReport.id}/actions`}>
+                    See all {responseActions.length} response actions
+                  </Link>
+                </Button>
               </div>
             </DialogContent>
           </Dialog>

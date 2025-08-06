@@ -21,7 +21,6 @@ export const loginAtom = atom(
 
       if (response.status === 201) {
         const user = response.data;
-        console.log(user);
         set(authStateAtom, { user, isAuthenticated: true, isLoading: false, error: null });
         console.log("Updated auth state:", get(authStateAtom));
         options?.onSuccess?.(user);
@@ -51,7 +50,6 @@ export const registerAtom = atom(
 
       if (response.status === 201) {
         const user = response.data;
-        console.log(user);
         set(authStateAtom, { user, isAuthenticated: true, isLoading: false, error: null });
         options?.onSuccess?.(user);
       } else {
@@ -76,7 +74,6 @@ export const logoutAtom = atom(
 
     try {
       const response = await api.post('auth/logout');
-      console.log('logout response', response)
       if ([HttpStatusCode.Ok, HttpStatusCode.Created].includes(response.status)) {
         set(authStateAtom, { user: null, isAuthenticated: false, isLoading: false, error: null });
         options?.onSuccess?.(response.data);
@@ -101,7 +98,6 @@ export const fetchUserAtom = atom(
     set(authStateAtom, { ...authState, isLoading: true, error: null });
 
     try {
-      console.log("before");
       const response = await api.get("/auth/user");
       console.log(response);
       if (response.status === 200) {

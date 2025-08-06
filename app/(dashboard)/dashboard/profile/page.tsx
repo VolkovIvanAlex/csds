@@ -49,7 +49,6 @@ export default function ProfilePage() {
   })
 
   function onSubmit(data: ProfileFormValues) {
-    console.log("submitted");
     setIsLoading(true)
     updateUserProfile({
       userData: {
