@@ -11,3 +11,11 @@ services:
     ports:
       - "3000:3000"
     restart: always
+    networks:
+      - default
+
+# Define the external network
+networks:
+  default:
+    external: true
+    name: csds-api_default
