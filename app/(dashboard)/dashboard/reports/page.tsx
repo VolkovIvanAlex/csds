@@ -113,6 +113,10 @@ export default function ReportsPage() {
     }
   }, [authState.user?.id, fetchUserOrganizationReports, fetchAllOrganizations])
 
+  const hasSubmittedReports = useMemo(() => {
+    return userOrganizationReports.some(report => report.submitted);
+  }, [userOrganizationReports]);
+
   // Filter reports based on search query and filters
   const filteredReports = useMemo(() => {
     return userOrganizationReports.filter((report) => {
@@ -388,6 +392,8 @@ export default function ReportsPage() {
     return userOrgIds.includes(report.organization.id)
   }
 
+  console.log(reportsByOrganization);
+
   return (
     <AuthGuard>
       <div className="space-y-6">
@@ -447,35 +453,38 @@ export default function ReportsPage() {
                   </SelectContent>
                 </Select>
 
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant={"outline"}
-                      className={cn("w-full sm:w-[250px] justify-start text-left font-normal", !dateRange && "text-muted-foreground")}
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {dateRange?.from ? (
-                        dateRange.to ? (
-                          <>
-                            {format(dateRange.from, "LLL dd, y")} - {format(dateRange.to, "LLL dd, y")}
-                          </>
+                {hasSubmittedReports && (
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant={"outline"}
+                        className={cn("w-full sm:w-[250px] justify-start text-left font-normal", !dateRange && "text-muted-foreground")}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {dateRange?.from ? (
+                          dateRange.to ? (
+                            <>
+                              {format(dateRange.from, "LLL dd, y")} - {format(dateRange.to, "LLL dd, y")}
+                            </>
+                          ) : (
+                            format(dateRange.from, "LLL dd, y")
+                          )
                         ) : (
-                          format(dateRange.from, "LLL dd, y")
-                        )
-                      ) : (
-                        <span>Filter by date</span>
-                      )}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="end">
-                    <Calendar
-                      mode="range"
-                      selected={dateRange}
-                      onSelect={setDateRange}
-                      numberOfMonths={2}
-                    />
-                  </PopoverContent>
-                </Popover>
+                          <span>Filter by date</span>
+                        )}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="end">
+                      <Calendar
+                        mode="range"
+                        selected={dateRange}
+                        onSelect={setDateRange}
+                        numberOfMonths={2}
+                      />
+                    </PopoverContent>
+                  </Popover>
+                )}
+
                 {(searchQuery || statusFilter !== 'all' || severityFilter !== 'all' || dateRange) && (
                   <Button variant="ghost" size="icon" onClick={handleResetFilters}>
                     <X className="h-4 w-4" />
@@ -696,7 +705,7 @@ export default function ReportsPage() {
                       View STIX Data
                     </Button>
 
-=                    {!canModifyReport(selectedReport) && selectedReport.submitted && (
+                    {!canModifyReport(selectedReport) && selectedReport.submitted && (
                       <Button variant="secondary" onClick={() => openResponseActionDialog(selectedReport)}>
                         Suggest Response Actions
                       </Button>
