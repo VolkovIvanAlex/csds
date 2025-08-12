@@ -347,6 +347,9 @@ export default function ReportsPage() {
   };
 
   const formatDate = (dateString) => {
+    if (!dateString) {
+      return "Not submitted";
+    }
     const date = new Date(dateString)
     return new Intl.DateTimeFormat("en-US", {
       month: "short",
@@ -553,6 +556,12 @@ export default function ReportsPage() {
                                 <DropdownMenuItem onClick={() => handleShareClick(report)}>
                                   <Share2 className="mr-2 h-4 w-4" />
                                   Share Report
+                                </DropdownMenuItem>
+                                )}
+                                {canModifyReport(report) && !report.submitted && (
+                                <DropdownMenuItem onClick={() => handleSubmitReport(report.id)}>
+                                  <Send className="mr-2 h-4 w-4" />
+                                  Submit Report
                                 </DropdownMenuItem>
                                 )}
                                 {canModifyReport(report) && <DropdownMenuSeparator />}

@@ -422,7 +422,7 @@ export default function PublicDashboardPage() {
         </TabsContent>
       </Tabs>
 
-      <div className="mt-6 flex justify-center">
+      {/* <div className="mt-6 flex justify-center">
         <div className="text-center">
           <h2 className="text-xl font-semibold">Ready to secure your organization?</h2>
           <p className="mt-2 text-muted-foreground">
@@ -437,7 +437,7 @@ export default function PublicDashboardPage() {
             </Button>
           </div>
         </div>
-      </div>
+      </div> */}
     </div>
   )
 }

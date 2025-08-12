@@ -122,7 +122,7 @@ export function Sidebar() {
                   <h3 className="mb-2 text-xs font-semibold text-muted-foreground">ANALYSIS</h3>
                   <div className="space-y-1">
                     <SidebarItem href="/dashboard/analytics" icon={BarChart3} title="Analytics" />
-                    <SidebarItem href="/dashboard/notifications" icon={Bell} title="Notifications" />
+                    {/* <SidebarItem href="/dashboard/notifications" icon={Bell} title="Notifications" /> */}
                   </div>
                 </div>
 

@@ -283,7 +283,7 @@ export default function DashboardPage() {
       </Tabs>
 
       <div className="grid gap-4 md:grid-cols-2">
-        <Card>
+        {/* <Card>
           <CardHeader>
             <CardTitle>Quick Actions</CardTitle>
           </CardHeader>
@@ -315,7 +315,7 @@ export default function DashboardPage() {
               </Button>
             </div>
           </CardContent>
-        </Card>
+        </Card> */}
 
         <Card>
           <CardHeader>
@@ -360,12 +360,12 @@ export default function DashboardPage() {
                 </Badge>
               </div>
 
-              <Button variant="link" size="sm" className="w-full mt-2" asChild>
+              {/* <Button variant="link" size="sm" className="w-full mt-2" asChild>
                 <Link href="/dashboard/status">
                   View detailed status
                   <ArrowUpRight className="ml-1 h-3 w-3" />
                 </Link>
-              </Button>
+              </Button> */}
             </div>
           </CardContent>
         </Card>

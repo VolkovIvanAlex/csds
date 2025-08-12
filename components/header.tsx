@@ -92,12 +92,12 @@ export function Header() {
               </DropdownMenuContent>
             </DropdownMenu>
 
-            <Button variant="ghost" size="icon" className="rounded-full" asChild>
+            {/* <Button variant="ghost" size="icon" className="rounded-full" asChild>
               <Link href="/dashboard/notifications">
                 <Bell className="h-5 w-5" />
                 <span className="sr-only">Notifications</span>
               </Link>
-            </Button>
+            </Button> */}
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
